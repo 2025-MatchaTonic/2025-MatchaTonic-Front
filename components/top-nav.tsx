@@ -13,10 +13,10 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Image from "next/image"
 
-const GOOGLE_LOGIN_URL = "https://api.promate.ai.kr/oauth2/authorization/google"
-
 export function TopNav() {
   const { user, setUser, setScreen, screen } = useAppStore()
+
+  if (!user) return null
 
   const navItems: { label: string; screen: Screen }[] = [
     { label: "MAIN", screen: "main" },
@@ -56,45 +56,37 @@ export function TopNav() {
         <span className="text-3xl tracking-tight text-primary font-logo">ProMate</span>
       </button>
 
-      {/* 우측: 사용자 탭 또는 로그인 */}
+      {/* 우측: 사용자 탭 */}
       <div className="flex items-center justify-end">
-        {user ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 px-2">
-                <Avatar className="h-7 w-7">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-                    {user.avatar}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden text-sm md:inline" style={{fontWeight: 500}}>{user.name}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="flex flex-col items-start gap-0.5">
-                <span className="text-sm font-medium">{user.name}</span>
-                <span className="text-xs text-muted-foreground">{user.email}</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  clearAuthToken()
-                  setUser(null)
-                  setScreen("login")
-                }}
-                className="text-destructive focus:text-destructive"
-              >
-                로그아웃
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <a href={GOOGLE_LOGIN_URL}>
-            <Button variant="outline" size="sm">
-              로그인
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 px-2">
+              <Avatar className="h-7 w-7">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+                  {user.avatar}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden text-sm md:inline" style={{fontWeight: 500}}>{user.name}</span>
             </Button>
-          </a>
-        )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem className="flex flex-col items-start gap-0.5">
+              <span className="text-sm font-medium">{user.name}</span>
+              <span className="text-xs text-muted-foreground">{user.email}</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                clearAuthToken()
+                setUser(null)
+                setScreen("login")
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              로그아웃
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
