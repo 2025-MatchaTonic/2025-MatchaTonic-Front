@@ -3,7 +3,7 @@
  * GET /api/chat/{projectId}/messages
  */
 
-import { buildApiUrl } from "./client"
+import { apiRequest } from "./request"
 import type { Message } from "@/lib/store"
 
 export interface ChatMessageResponse {
@@ -40,14 +40,7 @@ export function mapChatMessageToAppFormat(
 export async function fetchChatMessages(
   projectId: number
 ): Promise<ChatMessageResponse[]> {
-  const url = buildApiUrl(`/api/chat/${projectId}/messages`)
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  })
+  const res = await apiRequest(`/api/chat/${projectId}/messages`, { method: "GET" })
 
   if (!res.ok) {
     throw new Error(`채팅 내역 조회 실패: ${res.status} ${res.statusText}`)

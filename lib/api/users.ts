@@ -3,7 +3,7 @@
  * - GET /api/users/me: 로그인 유저 정보 조회
  */
 
-import { buildApiUrl } from "./client"
+import { apiRequest } from "./request"
 
 export interface UserMeResponse {
   id?: number
@@ -14,12 +14,7 @@ export interface UserMeResponse {
 }
 
 export async function fetchCurrentUser(): Promise<UserMeResponse> {
-  const url = buildApiUrl("/api/users/me")
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-  })
+  const res = await apiRequest("/api/users/me", { method: "GET" })
 
   if (!res.ok) {
     const text = await res.text()

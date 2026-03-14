@@ -1,21 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { fetchCurrentUser } from "@/lib/api/users"
+import { buildApiUrl } from "@/lib/api/client"
 
 export function LoginScreen() {
   const { setUser, setScreen } = useAppStore()
   const [loginLoading, setLoginLoading] = useState(false)
 
-  const handleGoogleLogin = async () => {
-    setLoginLoading(true)
-    const mockUser = { name: "김민수", email: "minsu@university.ac.kr", avatar: "민수" }
-    try {
-      if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-        const data = await fetchCurrentUser()
+  // OAuth 콜백 후 돌아왔을 때 세션 확인
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_API_BASE_URL) return
+    fetchCurrentUser()
+      .then((data) => {
         if (data?.name || data?.email) {
           setUser({
             name: data.name ?? "",
@@ -23,17 +23,22 @@ export function LoginScreen() {
             avatar: data.avatar ?? data.name?.charAt(0) ?? "?",
           })
           setScreen("main")
-          return
         }
-      }
-      setUser(mockUser)
-      setScreen("main")
-    } catch {
-      setUser(mockUser)
-      setScreen("main")
-    } finally {
-      setLoginLoading(false)
+      })
+      .catch(() => {})
+  }, [setUser, setScreen])
+
+  const handleGoogleLogin = () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
+    if (apiBase) {
+      setLoginLoading(true)
+      window.location.href = buildApiUrl("oauth2/authorization/google")
+      return
     }
+    // API URL 없을 때 (로컬 개발 폴백)
+    const mockUser = { name: "김민수", email: "minsu@university.ac.kr", avatar: "민수" }
+    setUser(mockUser)
+    setScreen("main")
   }
 
   return (

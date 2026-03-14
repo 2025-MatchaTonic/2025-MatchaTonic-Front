@@ -1,6 +1,7 @@
 "use client"
 
 import { useAppStore, type Screen } from "@/lib/store"
+import { clearAuthToken } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -76,6 +77,7 @@ export function TopNav() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
+                clearAuthToken()
                 setUser(null)
                 setScreen("login")
               }}

@@ -3,7 +3,7 @@
  * - POST /ai/project/templates: AI 프로젝트 템플릿 생성
  */
 
-import { buildApiUrl } from "./client"
+import { apiRequest } from "./request"
 
 export interface GenerateTemplatesRequest {
   projectId: number
@@ -13,11 +13,9 @@ export interface GenerateTemplatesRequest {
 export async function generateProjectTemplates(
   data: GenerateTemplatesRequest
 ): Promise<string> {
-  const url = buildApiUrl("/ai/project/templates")
-  const res = await fetch(url, {
+  const res = await apiRequest("/ai/project/templates", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: data,
   })
 
   if (!res.ok) {

@@ -7,7 +7,7 @@
  * - POST /api/projects/{projectId}/export: AI 분석 및 노션 내보내기
  */
 
-import { buildApiUrl } from "./client"
+import { apiRequest } from "./request"
 
 export interface MyProjectResponse {
   id: number
@@ -19,8 +19,7 @@ export interface MyProjectResponse {
 }
 
 export async function fetchMyProjects(): Promise<MyProjectResponse[]> {
-  const url = buildApiUrl("/api/projects/me")
-  const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } })
+  const res = await apiRequest("/api/projects/me", { method: "GET" })
 
   if (!res.ok) {
     const text = await res.text()
@@ -38,8 +37,7 @@ export interface ProjectMemberResponse {
 }
 
 export async function fetchProjectMembers(projectId: number): Promise<ProjectMemberResponse[]> {
-  const url = buildApiUrl(`/api/projects/${projectId}/members`)
-  const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } })
+  const res = await apiRequest(`/api/projects/${projectId}/members`, { method: "GET" })
 
   if (!res.ok) {
     const text = await res.text()
@@ -66,11 +64,9 @@ export interface CreateProjectResponse {
 export async function createProject(
   data: CreateProjectRequest
 ): Promise<CreateProjectResponse> {
-  const url = buildApiUrl("/api/projects")
-  const res = await fetch(url, {
+  const res = await apiRequest("/api/projects", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: data,
   })
 
   if (!res.ok) {
@@ -95,11 +91,9 @@ export interface JoinProjectResponse {
 export async function joinProject(
   data: JoinProjectRequest
 ): Promise<JoinProjectResponse> {
-  const url = buildApiUrl("/api/projects/join")
-  const res = await fetch(url, {
+  const res = await apiRequest("/api/projects/join", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: data,
   })
 
   if (!res.ok) {
@@ -134,14 +128,12 @@ export interface ExportProjectRequest {
 export async function exportProjectToNotion(
   data: ExportProjectRequest
 ): Promise<string> {
-  const url = buildApiUrl(`/api/projects/${data.projectId}/export`)
-  const res = await fetch(url, {
+  const res = await apiRequest(`/api/projects/${data.projectId}/export`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       projectId: data.projectId,
       selectedAnswers: data.selectedAnswers,
-    }),
+    },
   })
 
   if (!res.ok) {
