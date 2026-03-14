@@ -5,7 +5,7 @@ import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { fetchCurrentUser } from "@/lib/api/users"
-import { buildApiUrl } from "@/lib/api/client"
+import { buildApiUrl, getApiBaseUrl } from "@/lib/api/client"
 
 export function LoginScreen() {
   const { setUser, setScreen } = useAppStore()
@@ -13,7 +13,7 @@ export function LoginScreen() {
 
   // OAuth 콜백 후 돌아왔을 때 세션 확인
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL) return
+    if (!getApiBaseUrl()) return
     fetchCurrentUser()
       .then((data) => {
         if (data?.name || data?.email) {
@@ -29,7 +29,7 @@ export function LoginScreen() {
   }, [setUser, setScreen])
 
   const handleGoogleLogin = () => {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
+    const apiBase = getApiBaseUrl()
     if (apiBase) {
       setLoginLoading(true)
       window.location.href = buildApiUrl("oauth2/authorization/google")
