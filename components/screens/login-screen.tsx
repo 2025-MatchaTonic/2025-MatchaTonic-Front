@@ -1,15 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useAppStore } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { fetchCurrentUser } from "@/lib/api/users"
-import { buildApiUrl, getApiBaseUrl } from "@/lib/api/client"
+import { getApiBaseUrl } from "@/lib/api/client"
 
 export function LoginScreen() {
   const { setUser, setScreen } = useAppStore()
-  const [loginLoading, setLoginLoading] = useState(false)
 
   // OAuth 콜백 후 돌아왔을 때 세션 확인
   useEffect(() => {
@@ -27,27 +26,6 @@ export function LoginScreen() {
       })
       .catch(() => {})
   }, [setUser, setScreen])
-
-  const handleGoogleLogin = () => {
-    const apiBase = getApiBaseUrl()
-    const googleAuthUrl = apiBase
-      ? buildApiUrl("oauth2/authorization/google")
-      : "https://api.promate.ai.kr/oauth2/authorization/google"
-    // 프로덕션 도메인(promate, vercel)이면 항상 Google OAuth 시도
-    const isProd =
-      typeof window !== "undefined" &&
-      (window.location.hostname.includes("promate.ai.kr") ||
-        window.location.hostname.endsWith(".vercel.app"))
-    if (apiBase || isProd) {
-      setLoginLoading(true)
-      window.location.href = googleAuthUrl
-      return
-    }
-    // 로컬 개발 시에만 mock
-    const mockUser = { name: "김민수", email: "minsu@university.ac.kr", avatar: "민수" }
-    setUser(mockUser)
-    setScreen("main")
-  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 relative overflow-hidden">
@@ -111,12 +89,12 @@ export function LoginScreen() {
             </div>
 
             <Button
-              onClick={handleGoogleLogin}
-              disabled={loginLoading}
+              asChild
               className="w-full gap-3 h-12 text-sm bg-transparent border-2 hover:bg-primary/5 transition-all duration-300 shadow-lg hover:shadow-xl"
               style={{fontWeight: 500}}
               variant="outline"
             >
+              <a href="https://api.promate.ai.kr/oauth2/authorization/google">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -135,7 +113,8 @@ export function LoginScreen() {
                   fill="#EA4335"
                 />
               </svg>
-              {loginLoading ? "로그인 중..." : "Google로 계속하기"}
+              Google로 계속하기
+              </a>
             </Button>
 
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
