@@ -30,12 +30,20 @@ export function LoginScreen() {
 
   const handleGoogleLogin = () => {
     const apiBase = getApiBaseUrl()
-    if (apiBase) {
+    const googleAuthUrl = apiBase
+      ? buildApiUrl("oauth2/authorization/google")
+      : "https://api.promate.ai.kr/oauth2/authorization/google"
+    // 프로덕션 도메인(promate, vercel)이면 항상 Google OAuth 시도
+    const isProd =
+      typeof window !== "undefined" &&
+      (window.location.hostname.includes("promate.ai.kr") ||
+        window.location.hostname.endsWith(".vercel.app"))
+    if (apiBase || isProd) {
       setLoginLoading(true)
-      window.location.href = buildApiUrl("oauth2/authorization/google")
+      window.location.href = googleAuthUrl
       return
     }
-    // API URL 없을 때 (로컬 개발 폴백)
+    // 로컬 개발 시에만 mock
     const mockUser = { name: "김민수", email: "minsu@university.ac.kr", avatar: "민수" }
     setUser(mockUser)
     setScreen("main")
