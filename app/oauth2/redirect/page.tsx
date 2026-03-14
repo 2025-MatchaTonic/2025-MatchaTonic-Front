@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { setAuthToken } from "@/lib/auth"
+import { getApiBaseUrl } from "@/lib/api/client"
 import { useAppStore } from "@/lib/store"
 
 function OAuth2RedirectContent() {
@@ -22,13 +23,8 @@ function OAuth2RedirectContent() {
 
   async function fetchUserAndRedirect(token: string) {
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL
-      if (!base) {
-        useAppStore.getState().setScreen("main")
-        router.replace("/")
-        return
-      }
-      const res = await fetch(`${base}/api/users/me`, {
+      const base = getApiBaseUrl() || "https://api.promate.ai.kr"
+      const res = await fetch(`${base.replace(/\/$/, "")}/api/users/me`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
