@@ -1,0 +1,277 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@font-face {
+  font-family: 'GmarketSans';
+  src: url('/fonts/GmarketSansBold.woff2') format('woff');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '에이투지체';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/%EC%97%90%EC%9D%B4%ED%88%AC%EC%A7%80%EC%B2%B4-5Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '에이투지체';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/%EC%97%90%EC%9D%B4%ED%88%AC%EC%A7%80%EC%B2%B4-7Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 153 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 153 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 153 10% 10%;
+    --primary: 153 38% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 153 10% 94%;
+    --secondary-foreground: 153 10% 15%;
+    --muted: 153 6% 95%;
+    --muted-foreground: 153 5% 45%;
+    --accent: 153 10% 94%;
+    --accent-foreground: 153 10% 15%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 153 8% 90%;
+    --input: 153 8% 90%;
+    --ring: 153 38% 30%;
+    --chart-1: 153 38% 30%;
+    --chart-2: 153 45% 35%;
+    --chart-3: 153 50% 25%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 153 10% 20%;
+    --sidebar-primary: 153 38% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 153 10% 94%;
+    --sidebar-accent-foreground: 153 10% 15%;
+    --sidebar-border: 153 8% 90%;
+    --sidebar-ring: 153 38% 30%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground;
+    background: linear-gradient(135deg, #fafffe 0%, #f6fcfa 30%, #f2faf7 60%, #eef8f4 100%);
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(ellipse 1200px 800px at 15% 25%, rgba(49, 105, 78, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 900px 1200px at 85% 75%, rgba(49, 105, 78, 0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 600px 600px at 50% 50%, rgba(49, 105, 78, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+  }
+  
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle 400px at 25% 75%, rgba(49, 105, 78, 0.08) 0%, transparent 50%),
+      radial-gradient(circle 300px at 75% 25%, rgba(49, 105, 78, 0.06) 0%, transparent 50%),
+      radial-gradient(circle 500px at 60% 40%, rgba(49, 105, 78, 0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.7;
+  }
+  
+  /* 제목들 - 각각 다른 굵기로 설정 */
+  h1 {
+    @apply text-4xl;
+    font-weight: 800; /* ExtraBold */
+  }
+  
+  h2 {
+    @apply text-3xl;
+    font-weight: 700; /* Bold */
+  }
+  
+  h3 {
+    @apply text-2xl;
+    font-weight: 600; /* SemiBold */
+  }
+  
+  h4 {
+    @apply text-xl;
+    font-weight: 600; /* SemiBold */
+  }
+  
+  h5 {
+    @apply text-lg;
+    font-weight: 500; /* Medium */
+  }
+  
+  h6 {
+    @apply text-base;
+    font-weight: 500; /* Medium */
+  }
+  
+  /* 본문 텍스트 */
+  p {
+    font-weight: 400; /* Regular */
+  }
+  
+  /* 작은 텍스트들 */
+  .text-sm {
+    font-weight: 400; /* Regular */
+  }
+  
+  .text-xs {
+    font-weight: 400; /* Regular */
+  }
+  
+  /* 버튼 텍스트 */
+  button {
+    font-weight: 600; /* SemiBold */
+  }
+  
+  /* 강조 텍스트 */
+  strong, b {
+    font-weight: 700; /* Bold */
+  }
+  
+  /* 라벨 */
+  label {
+    font-weight: 500; /* Medium */
+  }
+  
+  /* 링크 */
+  a {
+    font-weight: 500; /* Medium */
+  }
+  
+  /* 배지 */
+  .badge {
+    font-weight: 500; /* Medium */
+  }
+  
+  /* 로고 폰트 - 에이투지체 */
+  .font-logo {
+    font-family: '에이투지체', 'Pretendard', system-ui, sans-serif !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.03em;
+  }
+  
+  /* 부드러운 애니메이션 */
+  * {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
+  }
+  
+  /* 스크롤바 스타일링 */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+  
+  /* 부드러운 배경 애니메이션 */
+  @keyframes float {
+    0%, 100% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -30px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+  }
+  
+  @keyframes float-reverse {
+    0%, 100% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(-30px, 30px) scale(0.9); }
+    66% { transform: translate(20px, -20px) scale(1.1); }
+  }
+  
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+  
+  .animate-float-reverse {
+    animation: float-reverse 10s ease-in-out infinite;
+  }
+  
+  /* 로딩 진행 바 - 좌우로 부드럽게 왕복 */
+  @keyframes progress-indeterminate {
+    0%, 100% { transform: translateX(-100%); }
+    50% { transform: translateX(350%); }
+  }
+  
+  .animate-progress-indeterminate {
+    animation: progress-indeterminate 2s ease-in-out infinite;
+  }
+  
+  /* 타이핑 애니메이션 */
+  @keyframes typing-pulse {
+    0%, 60%, 100% {
+      opacity: 0.4;
+      transform: scale(0.8);
+    }
+    30% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-typing {
+    animation: typing-pulse 1.4s ease-in-out infinite;
+  }
+}

@@ -1,0 +1,1240 @@
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
+import { fetchChatMessages, mapChatMessageToAppFormat } from "@/lib/api/chat"
+import { fetchProjectMembers } from "@/lib/api/projects"
+import { generateProjectTemplates } from "@/lib/api/ai"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+const DISCOVERY_QUESTIONS = [
+  "프로젝트가 해결하려는 문제는 무엇인가요?",
+  "대상 사용자는 누구인가요?",
+  "예상 기간은 몇 주인가요?",
+  "팀 인원은 몇 명이고, 각자의 역할은 무엇인가요?",
+]
+
+const DEFINITION_PROMPTS = [
+  "좋아요! 프로젝트를 명확히 정의해 봅시다. 한 문장으로 핵심 문제를 설명해 주세요.",
+  "이 솔루션으로 구체적으로 누가 혜택을 받나요?",
+  "이 문제가 대상 사용자에게 왜 중요한가요?",
+  "주요 산출물은 무엇인가요?",
+  "목표 마감일은 언제인가요?",
+]
+
+function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate: (field: string, value: string) => void }) {
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState("")
+
+  const fields = [
+    { label: "제목", key: "title", value: summary.title },
+    { label: "목표", key: "goal", value: summary.goal },
+    { label: "팀 인원", key: "teamSize", value: summary.teamSize },
+    { label: "역할", key: "roles", value: summary.roles },
+    { label: "마감일", key: "dueDate", value: summary.dueDate },
+    { label: "산출물", key: "deliverables", value: summary.deliverables },
+  ]
+
+  const filledCount = fields.filter((f) => f.value).length
+
+  const handleEdit = (field: { label: string; key: string; value: string }) => {
+    setEditingField(field.key)
+    setEditValue(field.value || "")
+  }
+
+  const handleSave = () => {
+    if (editingField) {
+      onUpdate(editingField, editValue)
+      setEditingField(null)
+      setEditValue("")
+    }
+  }
+
+  const handleCancel = () => {
+    setEditingField(null)
+    setEditValue("")
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave()
+    } else if (e.key === "Escape") {
+      handleCancel()
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 shadow-lg shadow-primary/5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm text-card-foreground" style={{fontWeight: 600}}>세션 요약</h3>
+        <Badge variant="secondary" className="text-xs">
+          {filledCount}/{fields.length}
+        </Badge>
+      </div>
+      <div className="flex flex-col gap-3">
+        {fields.map((field) => (
+          <div key={field.key} className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {field.label}
+            </span>
+            {editingField === field.key ? (
+              <div className="flex gap-2">
+                <Input
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="flex-1 h-8 text-sm"
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className="h-8 px-2"
+                  style={{fontWeight: 500}}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="h-8 px-2"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </Button>
+              </div>
+            ) : (
+              <div 
+                className="group flex items-center gap-2 cursor-pointer hover:bg-background/50 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+                onClick={() => handleEdit(field)}
+              >
+                {field.value ? (
+                  <span className="text-sm text-foreground flex-1">{field.value}</span>
+                ) : (
+                  <span className="text-sm text-muted-foreground/50 italic flex-1">아직 미정</span>
+                )}
+                <svg 
+                  width="12" 
+                  height="12" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                  className="text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="m18.5 2.5 a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex gap-3 animate-in slide-in-from-left-2 duration-300">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium bg-primary text-primary-foreground">
+        M
+      </div>
+      <div className="max-w-[80%] rounded-xl px-4 py-2.5 bg-white border border-border/50 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <div className="w-2 h-2 bg-primary/60 rounded-full animate-typing" style={{animationDelay: '0ms'}}></div>
+            <div className="w-2 h-2 bg-primary/60 rounded-full animate-typing" style={{animationDelay: '200ms'}}></div>
+            <div className="w-2 h-2 bg-primary/60 rounded-full animate-typing" style={{animationDelay: '400ms'}}></div>
+          </div>
+          <span className="text-xs text-muted-foreground">mates가 입력 중...</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggleSelect }: { 
+  message: Message; 
+  onButtonClick?: (button: MessageButton) => void;
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+}) {
+  const isAI = message.sender === "ai"
+  
+  return (
+    <div className={`flex gap-3 ${isAI ? "" : "flex-row-reverse"} animate-in slide-in-from-bottom-2 duration-500`}>
+      {isSelectable && (
+        <div className="flex items-center shrink-0">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+          />
+        </div>
+      )}
+      <div
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+          isAI
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {isAI ? "M" : "나"}
+      </div>
+      <div className="max-w-[80%] flex flex-col gap-2">
+        <div
+          className={`rounded-xl px-4 py-2.5 text-sm leading-relaxed shadow-sm border ${
+            isAI
+              ? "bg-white text-foreground border-border/50"
+              : "bg-white text-foreground border-border/50"
+          } ${isSelected ? "ring-2 ring-primary/50 ring-offset-2" : ""}`}
+        >
+          {message.text.split('\n').map((line, index) => (
+            <div key={index}>
+              {line.split(/(@mates)/g).map((part, partIndex) => 
+                part === '@mates' ? (
+                  <span key={partIndex} className="bg-primary/20 text-primary px-1 py-0.5 rounded text-xs font-medium">
+                    @mates
+                  </span>
+                ) : (
+                  part
+                )
+              )}
+              {index < message.text.split('\n').length - 1 && <br />}
+            </div>
+          ))}
+        </div>
+        
+        
+        {message.hasButtons && !message.buttonClicked && message.buttons && (
+          <div className="flex gap-2 mt-1">
+            {message.buttons.map((button) => (
+              <Button
+                key={button.id}
+                variant="outline"
+                size="sm"
+                onClick={() => onButtonClick?.(button)}
+                className="h-8 px-3 text-xs bg-white hover:bg-primary/5 border-primary/30"
+                style={{fontWeight: 500}}
+              >
+                {button.text}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function ChatScreen() {
+  const { getCurrentProject, updateProject, setScreen, setCurrentProjectId, setExportedSelectedAnswers } = useAppStore()
+  const project = getCurrentProject()
+
+  const [input, setInput] = useState("")
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [aiStep, setAiStep] = useState(0)
+  const [showSummary, setShowSummary] = useState(false)
+  const [showTeamModal, setShowTeamModal] = useState(false)
+  const [showHistory, setShowHistory] = useState(true)
+  const [isAiTyping, setIsAiTyping] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const hasInitialized = useRef(false)
+  const hasShownCompleteMessage = useRef(false)
+  const [inputKey, setInputKey] = useState(0) // 입력창 강제 리렌더용
+  const [showTemplateOptions, setShowTemplateOptions] = useState(false)
+  const [selectedTemplateTypes, setSelectedTemplateTypes] = useState<string[]>([])
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false)
+  const [waitingForTopic, setWaitingForTopic] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [membersLoading, setMembersLoading] = useState(false)
+
+  // 백엔드 API: 팀원 목록 조회 (팀원 모달 열릴 때)
+  useEffect(() => {
+    if (showTeamModal && project?.backendProjectId) {
+      setMembersLoading(true)
+      fetchProjectMembers(project.backendProjectId)
+        .then((apiMembers) => {
+          const mapped = apiMembers.map((m, i) => ({
+            id: m.email || `member-${i}`,
+            name: m.name,
+            role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role,
+            avatar: m.name?.charAt(0) || "?",
+          }))
+          updateProject(project.id, { members: mapped })
+        })
+        .catch(() => {})
+        .finally(() => setMembersLoading(false))
+    }
+  }, [showTeamModal, project?.backendProjectId, project?.id, updateProject])
+
+  // 백엔드 API: 과거 채팅 내역 조회
+  useEffect(() => {
+    if (!project?.backendProjectId) return
+
+    let cancelled = false
+    setIsLoadingHistory(true)
+
+    fetchChatMessages(project.backendProjectId)
+      .then((apiMessages) => {
+        if (cancelled) return
+        const mapped = apiMessages.map((m, i) => mapChatMessageToAppFormat(m, i))
+        if (mapped.length > 0) {
+          updateProject(project.id, {
+            messages: mapped,
+            lastUpdated: new Date(),
+          })
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) console.warn("채팅 내역 조회 실패:", err)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHistory(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [project?.id, project?.backendProjectId])
+
+  // AI 질문 대기 중인지 확인 (텍스트 답변이 필요한 경우)
+  const lastAiIndex = project?.messages 
+    ? project.messages.reduce((last, m, i) => m.sender === "ai" ? i : last, -1)
+    : -1
+  const lastAiMsg = lastAiIndex >= 0 ? project?.messages[lastAiIndex] : null
+  const isAnswerMode = !waitingForTopic && lastAiMsg && lastAiMsg.sender === "ai" && 
+    (!lastAiMsg.hasButtons || lastAiMsg.buttonClicked) &&
+    !lastAiMsg.text.includes("템플릿 생성") && !lastAiMsg.text.includes("핵심 내용을 모두 수집")
+  
+  const selectableMessages = isAnswerMode && lastAiIndex >= 0
+    ? project!.messages.filter((m, i) => m.sender === "user" && i > lastAiIndex)
+    : []
+  const selectedMessages = selectableMessages.filter(m => m.selectedForAnswer)
+  const hasSelectedMessages = selectedMessages.length > 0
+
+  const handleToggleSelect = (msgId: string) => {
+    if (!project) return
+    const updated = project.messages.map(m => 
+      m.id === msgId ? { ...m, selectedForAnswer: !m.selectedForAnswer } : m
+    )
+    updateProject(project.id, { messages: updated, lastUpdated: new Date() })
+  }
+
+  const handleSubmitSelected = () => {
+    if (!project || !hasSelectedMessages || isAiTyping) return
+    const combinedText = selectedMessages.map(m => m.text).join("\n\n") + " @mates"
+    clearInput()
+    handleSendWithText(combinedText, true)
+  }
+
+  const handleButtonClick = (button: MessageButton) => {
+    if (!project) return
+    
+    // 노션 링크 버튼 처리 - 노션 내보내기로 이동
+    if (button.id === "notion-link") {
+      const summary = project.sessionSummary
+      const answers = [
+        summary.title,
+        summary.goal,
+        summary.teamSize,
+        summary.roles,
+        summary.dueDate,
+        summary.deliverables,
+      ].filter(Boolean)
+      setExportedSelectedAnswers(answers)
+      setCurrentProjectId(project.id)
+      setScreen("export-notion")
+      return
+    }
+
+    // 템플릿 내보내기 버튼 처리
+    if (button.id === "export-template") {
+      // 버튼 클릭된 상태로 업데이트
+      const updatedMessages = project.messages.map(msg => 
+        msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg
+      )
+      
+      // 사용자 응답 메시지 추가
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: "user",
+        text: button.value,
+        timestamp: new Date(),
+      }
+      
+      updateProject(project.id, {
+        messages: [...updatedMessages, userMsg],
+        lastUpdated: new Date(),
+      })
+
+      // 템플릿 타입 선택 모달 표시
+      setTimeout(() => {
+        setShowTemplateOptions(true)
+      }, 500)
+      
+      return
+    }
+
+    // 나중에 버튼 처리
+    if (button.id === "skip-export") {
+      // 버튼 클릭된 상태로 업데이트
+      const updatedMessages = project.messages.map(msg => 
+        msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg
+      )
+      
+      // 사용자 응답 메시지 추가
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: "user",
+        text: button.value,
+        timestamp: new Date(),
+      }
+
+      updateProject(project.id, {
+        messages: [...updatedMessages, userMsg],
+        lastUpdated: new Date(),
+      })
+
+      // AI 응답 메시지
+      setTimeout(() => {
+        setIsAiTyping(true)
+        
+        setTimeout(() => {
+          const aiMsg: Message = {
+            id: crypto.randomUUID(),
+            sender: "ai",
+            text: "알겠습니다. 언제든지 필요하실 때 템플릿을 내보내실 수 있습니다.\n추가로 도움이 필요하시면 @mates를 태그해주세요.",
+            timestamp: new Date(),
+          }
+
+          const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+          if (latest) {
+            updateProject(project.id, {
+              messages: [...latest.messages, aiMsg],
+              lastUpdated: new Date(),
+            })
+          }
+          
+          setIsAiTyping(false)
+        }, 1500)
+      }, 800)
+      
+      return
+    }
+    
+    // 버튼이 클릭된 메시지를 찾아서 buttonClicked를 true로 설정
+    const updatedMessages = project.messages.map(msg => 
+      msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg
+    )
+    
+    // 사용자 응답 메시지 추가
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      sender: "user",
+      text: button.value,
+      timestamp: new Date(),
+    }
+    
+    updateProject(project.id, {
+      messages: [...updatedMessages, userMsg],
+      lastUpdated: new Date(),
+    })
+    
+    // AI 응답 추가 (주제 유무에 따라 다른 질문)
+    setTimeout(() => {
+      setIsAiTyping(true)
+      
+      setTimeout(() => {
+        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+        if (!latest) return
+        
+        let aiResponse = ""
+        if (button.id === "yes") {
+          aiResponse = "좋습니다! 프로젝트 주제나 해결하려는 문제를 간단히 설명해주세요."
+          setWaitingForTopic(true)
+        } else {
+          aiResponse = "해결하고 싶은 문제나 일상생활속 문제가 있으셨나요?"
+          setWaitingForTopic(true)
+        }
+        
+        const aiMsg: Message = {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          text: aiResponse,
+          timestamp: new Date(),
+        }
+        
+        updateProject(project.id, {
+          messages: [...latest.messages, aiMsg],
+          lastUpdated: new Date(),
+        })
+        
+        setIsAiTyping(false)
+      }, 1500)
+    }, 800)
+  }
+
+  const phase = project?.topic ? "definition" : "discovery"
+  const questions = phase === "discovery" ? DISCOVERY_QUESTIONS : DEFINITION_PROMPTS
+
+  // 첫 AI 질문으로 채팅 초기화 (백엔드 연동 시 fetch 완료 후에만)
+  useEffect(() => {
+    const shouldInit =
+      project &&
+      project.messages.length === 0 &&
+      !hasInitialized.current &&
+      (!project.backendProjectId || !isLoadingHistory)
+
+    if (shouldInit) {
+      hasInitialized.current = true
+      
+      // 타이핑 애니메이션 시작
+      setIsAiTyping(true)
+      
+      // 첫 번째 메시지 (인사) - 1.5초 후
+      setTimeout(() => {
+        const greetingMsg: Message = {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          text: "안녕하세요 저는 mates입니다.\n도움이 필요하시면 @mates를 태그해주세요.",
+          timestamp: new Date(),
+        }
+        
+        updateProject(project.id, {
+          messages: [greetingMsg],
+          lastUpdated: new Date(),
+        })
+        
+        // 두 번째 메시지 준비를 위해 다시 타이핑 시작
+        setTimeout(() => {
+          setIsAiTyping(true)
+          
+          // 두 번째 메시지 (질문) - 추가 2초 후
+          setTimeout(() => {
+            const questionMsg: Message = {
+              id: crypto.randomUUID(),
+              sender: "ai",
+              text: "프로젝트를 시작하기에 앞서 아래 질문에 답해주세요\n지금 준비하고 있는 프로젝트 주제가 있나요?",
+              timestamp: new Date(),
+              hasButtons: true,
+              buttons: [
+                { id: "yes", text: "예", value: "예, 프로젝트 주제가 있습니다" },
+                { id: "no", text: "아니오", value: "아니오, 아직 주제가 없습니다" }
+              ]
+            }
+            
+            const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+            if (latest) {
+              updateProject(project.id, {
+                messages: [...latest.messages, questionMsg],
+                lastUpdated: new Date(),
+              })
+            }
+            setIsAiTyping(false)
+          }, 2000)
+        }, 800)
+        
+        setIsAiTyping(false)
+      }, 1500)
+    }
+  }, [project, updateProject, isLoadingHistory])
+
+  // 자동 스크롤
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [project?.messages.length])
+
+
+  if (!project) return null
+
+  const handleSendWithText = (userText: string, clearSelections?: boolean) => {
+    if (!userText || isAiTyping) return
+
+    const baseMessages = clearSelections
+      ? project.messages.map((m) => ({ ...m, selectedForAnswer: false }))
+      : project.messages
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      sender: "user",
+      text: userText,
+      timestamp: new Date(),
+    }
+
+    // 주제 입력 대기 중인 경우
+    if (waitingForTopic) {
+      // @mates 태그 제거 후 topic 저장
+      const topicText = userText.replace(/@mates/g, "").trim()
+      
+      updateProject(project.id, {
+        messages: [...baseMessages, userMsg],
+        topic: topicText,
+        lastUpdated: new Date(),
+      })
+
+      setWaitingForTopic(false)
+      setIsAiTyping(true)
+
+      // AI 응답
+      setTimeout(() => {
+        const aiMsg: Message = {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          text: "감사합니다! 이제 프로젝트 기획을 시작해보겠습니다.\n추가로 도움이 필요하시면 @mates를 태그해주세요.",
+          timestamp: new Date(),
+        }
+
+        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+        if (latest) {
+          updateProject(project.id, {
+            messages: [...latest.messages, aiMsg],
+            lastUpdated: new Date(),
+          })
+        }
+        
+        setIsAiTyping(false)
+      }, 1500)
+      
+      return
+    }
+
+    // @mates 태그가 포함된 경우에만 AI 응답
+    if (userText.includes("@mates")) {
+      const nextStep = aiStep + 1
+
+      // 응답을 요약에 파싱 (@mates 태그 제거 후)
+      const cleanedText = userText.replace(/@mates/g, "").trim()
+      const summary = { ...project.sessionSummary }
+      
+      if (phase === "discovery") {
+        if (aiStep === 0) summary.goal = cleanedText
+        if (aiStep === 1) summary.roles = cleanedText
+        if (aiStep === 2) summary.dueDate = `${cleanedText}주`
+        if (aiStep === 3) summary.teamSize = cleanedText
+      } else {
+        if (aiStep === 0) summary.title = cleanedText
+        if (aiStep === 1) summary.goal = cleanedText
+        if (aiStep === 2) summary.roles = cleanedText
+        if (aiStep === 3) summary.deliverables = cleanedText
+        if (aiStep === 4) summary.dueDate = cleanedText
+      }
+
+      // 사용자 메시지 + 요약 업데이트
+      updateProject(project.id, {
+        messages: [...baseMessages, userMsg],
+        sessionSummary: summary,
+        lastUpdated: new Date(),
+      })
+
+      setIsAiTyping(true)
+
+      // AI 응답을 지연 후 추가
+      setTimeout(() => {
+        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+        if (!latest) return
+
+        const aiText =
+          nextStep < questions.length
+            ? questions[nextStep]
+            : "핵심 내용을 모두 수집했습니다. 정리한 내용을 확인해 주세요."
+
+        const aiMsg: Message = {
+          id: crypto.randomUUID(),
+          sender: "ai",
+          text: aiText,
+          timestamp: new Date(),
+        }
+
+        updateProject(project.id, {
+          messages: [...latest.messages, aiMsg],
+          lastUpdated: new Date(),
+        })
+
+        setAiStep(nextStep)
+        setIsAiTyping(false)
+
+        if (nextStep >= questions.length) {
+          setShowConfirm(true)
+        }
+      }, 1200)
+    } else {
+      // @mates 태그가 없는 경우 사용자 메시지만 추가
+      updateProject(project.id, {
+        messages: [...baseMessages, userMsg],
+        lastUpdated: new Date(),
+      })
+    }
+  }
+
+  const handleSummaryUpdate = (field: string, value: string) => {
+    if (!project) return
+    
+    const updatedSummary = { ...project.sessionSummary, [field]: value }
+    updateProject(project.id, {
+      sessionSummary: updatedSummary,
+      lastUpdated: new Date(),
+    })
+  }
+
+  const clearInput = () => {
+    setInput("")
+    if (inputRef.current) {
+      inputRef.current.value = ""
+      inputRef.current.blur()
+    }
+    // 입력창 강제 리렌더
+    setInputKey(prev => prev + 1)
+    
+    // 여러 단계로 확실히 초기화
+    setTimeout(() => {
+      setInput("")
+      if (inputRef.current) {
+        inputRef.current.value = ""
+      }
+    }, 0)
+    
+    setTimeout(() => {
+      setInput("")
+      if (inputRef.current) {
+        inputRef.current.value = ""
+      }
+    }, 50)
+  }
+
+  const handleSend = () => {
+    const trimmedInput = input.trim()
+    if (!trimmedInput || isAiTyping) return
+    
+    // 즉시 입력창 초기화
+    clearInput()
+    
+    // 그 다음 메시지 처리
+    handleSendWithText(trimmedInput)
+  }
+
+  const summaryFields = [
+    { label: "제목", value: project.sessionSummary.title },
+    { label: "목표", value: project.sessionSummary.goal },
+    { label: "팀 인원", value: project.sessionSummary.teamSize },
+    { label: "역할", value: project.sessionSummary.roles },
+    { label: "마감일", value: project.sessionSummary.dueDate },
+    { label: "산출물", value: project.sessionSummary.deliverables },
+  ]
+
+  const missingFields = summaryFields.filter((f) => !f.value)
+  const isSessionComplete = missingFields.length === 0
+
+
+  const handleTemplateTypeChange = (type: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTemplateTypes(prev => [...prev, type])
+    } else {
+      setSelectedTemplateTypes(prev => prev.filter(t => t !== type))
+    }
+  }
+
+  const handleTemplateGenerate = async () => {
+    if (selectedTemplateTypes.length === 0) return
+    
+    setShowTemplateOptions(false)
+    setIsGeneratingTemplate(true)
+    updateProject(project.id, { templateType: selectedTemplateTypes, lastUpdated: new Date() })
+    
+    const loadingMsg: Message = {
+      id: crypto.randomUUID(),
+      sender: "ai",
+      text: "템플릿 생성중입니다...",
+      timestamp: new Date(),
+    }
+    
+    updateProject(project.id, {
+      messages: [...project.messages, loadingMsg],
+      lastUpdated: new Date(),
+    })
+
+    const addCompleteMessage = () => {
+      const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+      if (!latest) return
+      const completeMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: "템플릿 생성을 완료했습니다! 🎉",
+        timestamp: new Date(),
+        hasButtons: true,
+        buttons: [
+          { id: "notion-link", text: "노션 웹 게시 바로가기", value: "notion-link" }
+        ]
+      }
+      updateProject(project.id, {
+        messages: [...latest.messages, completeMsg],
+        lastUpdated: new Date(),
+      })
+      setIsGeneratingTemplate(false)
+    }
+
+    if (project.backendProjectId && process.env.NEXT_PUBLIC_API_BASE_URL) {
+      const summary = project.sessionSummary
+      const selectedAnswers = [
+        summary.title,
+        summary.goal,
+        summary.teamSize,
+        summary.roles,
+        summary.dueDate,
+        summary.deliverables,
+      ].filter(Boolean)
+      try {
+        await generateProjectTemplates({
+          projectId: project.backendProjectId,
+          selectedAnswers,
+        })
+        addCompleteMessage()
+      } catch {
+        setTimeout(addCompleteMessage, 1500)
+      }
+    } else {
+      setTimeout(addCompleteMessage, 3000)
+    }
+  }
+
+  // 세션 완료 시 완료 메시지 전송
+  // 프로젝트 변경 시 ref 리셋
+  useEffect(() => {
+    hasShownCompleteMessage.current = false
+  }, [project.id])
+
+  useEffect(() => {
+    if (isSessionComplete && project.messages.length > 0 && !hasShownCompleteMessage.current) {
+      const hasCompleteMessage = project.messages.some(msg => 
+        msg.sender === "ai" && (
+          msg.text.includes("템플릿을 생성할 수 있는 충분한 데이터를 수집했습니다") ||
+          msg.text.includes("핵심 내용을 모두 수집했습니다")
+        )
+      )
+      
+      if (!hasCompleteMessage) {
+        hasShownCompleteMessage.current = true
+        
+        setTimeout(() => {
+          setIsAiTyping(true)
+          
+          setTimeout(() => {
+            const completeMsg: Message = {
+              id: crypto.randomUUID(),
+              sender: "ai",
+              text: "템플릿을 생성할 수 있는 충분한 데이터를 수집했습니다.\n템플릿을 내보내시겠습니까?",
+              timestamp: new Date(),
+              hasButtons: true,
+              buttons: [
+                { id: "export-template", text: "템플릿 내보내기", value: "템플릿을 내보내겠습니다" },
+                { id: "skip-export", text: "나중에", value: "나중에 내보내겠습니다" }
+              ]
+            }
+
+            const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+            if (latest) {
+              updateProject(project.id, {
+                messages: [...latest.messages, completeMsg],
+                lastUpdated: new Date(),
+              })
+            }
+            
+            setIsAiTyping(false)
+          }, 1500)
+        }, 1000)
+      }
+    }
+  }, [isSessionComplete, project.id, project.messages.length])
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      {/* 좌측 사이드바 */}
+      <div className={`${showHistory ? 'w-80' : 'w-16'} shrink-0 border-r border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-300 ease-in-out`}>
+        {/* 팀원목록 버튼 */}
+        <div className="p-4 border-b border-border/50">
+          <Button
+            onClick={() => setShowTeamModal(true)}
+            variant="outline"
+            className={`w-full h-10 transition-all duration-300 ${showHistory ? 'justify-start gap-2' : 'justify-center px-0'}`}
+            style={{fontWeight: 500}}
+            title={!showHistory ? `팀원목록 (${project.members.length})` : undefined}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            {showHistory && (
+              <span className="transition-opacity duration-300">
+                팀원목록 ({project.members.length})
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {/* 핵심 결정사항 */}
+        <div className="p-4">
+          <div className={`flex items-center mb-3 ${showHistory ? 'justify-between' : 'justify-center'}`}>
+            {showHistory && (
+              <h3 className="text-sm text-foreground transition-opacity duration-300" style={{fontWeight: 600}}>
+                핵심 결정사항
+              </h3>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              className="h-6 w-6 p-0"
+              title={showHistory ? "접기" : "펼치기"}
+            >
+              <svg 
+                width="12" 
+                height="12" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2"
+                className={`transition-transform duration-300 ${showHistory ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </Button>
+          </div>
+          
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showHistory ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="space-y-2">
+              {summaryFields.filter((f) => f.value).map((f) => (
+                <div 
+                  key={f.label}
+                  className="p-2 rounded-lg bg-background/50 border border-border/30 hover:bg-background/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>
+                    <span className="text-xs text-muted-foreground" style={{fontWeight: 500}}>
+                      {f.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground line-clamp-2 pl-4" style={{fontWeight: 400}}>
+                    {f.value}
+                  </p>
+                </div>
+              ))}
+              {summaryFields.filter((f) => f.value).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  아직 결정된 항목이 없습니다
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 채팅 영역 */}
+      <div className="flex flex-1 flex-col">
+        {/* 채팅 헤더 */}
+        <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-card/30 backdrop-blur-sm">
+          <div className="flex flex-col">
+            <h2 className="text-sm text-foreground" style={{fontWeight: 600}}>{project.name}</h2>
+            <p className="text-xs text-muted-foreground">
+              mates와 함께 프로젝트를 계획해보세요
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSummary(!showSummary)}
+              className="text-xs md:hidden"
+            >
+              요약
+            </Button>
+            <Badge variant="outline" className="text-xs">
+              진행중
+            </Badge>
+          </div>
+        </div>
+
+        {/* 모바일 요약 */}
+        {showSummary && (
+          <div className="border-b border-border p-4 md:hidden">
+            <SummaryPanel summary={project.sessionSummary} onUpdate={handleSummaryUpdate} />
+          </div>
+        )}
+
+        {/* 메시지 */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
+          <div className="mx-auto flex max-w-2xl flex-col gap-4">
+            {isLoadingHistory && project.messages.length === 0 && (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                채팅 내역을 불러오는 중...
+              </div>
+            )}
+            {project.messages.map((msg) => (
+              <ChatMessage 
+                key={msg.id} 
+                message={msg} 
+                onButtonClick={handleButtonClick}
+                isSelectable={selectableMessages.some(m => m.id === msg.id)}
+                isSelected={!!msg.selectedForAnswer}
+                onToggleSelect={selectableMessages.some(m => m.id === msg.id) ? () => handleToggleSelect(msg.id) : undefined}
+              />
+            ))}
+            {isAiTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* 입력 */}
+        <div className="border-t border-border px-4 py-3 md:px-6">
+          <div className="mx-auto flex max-w-2xl flex-col gap-2">
+            {hasSelectedMessages && (
+              <Button
+                onClick={handleSubmitSelected}
+                disabled={isAiTyping}
+                className="w-full bg-primary hover:bg-primary/90 font-medium"
+              >
+                선택한 답변 제출하기 ({selectedMessages.length}개)
+              </Button>
+            )}
+            {input.includes("@mates") && !waitingForTopic && (
+              <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 12l2 2 4-4"/>
+                  <circle cx="12" cy="12" r="9"/>
+                </svg>
+                <span style={{fontWeight: 500}}>mates가 호출되었습니다</span>
+              </div>
+            )}
+            {waitingForTopic && (
+              <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span style={{fontWeight: 500}}>프로젝트 주제를 입력해주세요</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Input
+                key={inputKey}
+                ref={inputRef}
+                placeholder={waitingForTopic ? "프로젝트 주제를 입력해주세요..." : "@mates를 태그해서 AI에게 질문하세요..."}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    const currentValue = e.currentTarget.value.trim()
+                    if (currentValue && !isAiTyping) {
+                      // 즉시 입력창 초기화
+                      clearInput()
+                      
+                      // 그 다음 메시지 처리
+                      handleSendWithText(currentValue)
+                    }
+                  }
+                }}
+                className={`flex-1 ${input.includes("@mates") || waitingForTopic ? "border-primary/50 focus:border-primary" : ""}`}
+              />
+              <Button 
+                onClick={handleSend} 
+                disabled={!input.trim()} 
+                size="sm" 
+                className={`h-9 px-4 font-medium transition-all ${
+                  input.includes("@mates") || waitingForTopic
+                    ? "bg-primary hover:bg-primary/90 shadow-lg" 
+                    : ""
+                }`}
+              >
+                전송
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 우측 요약 사이드바 */}
+      <aside className="w-80 shrink-0 overflow-y-auto border-l border-border/50 bg-card/30 backdrop-blur-sm p-5">
+        <SummaryPanel summary={project.sessionSummary} onUpdate={handleSummaryUpdate} />
+        {showConfirm && (
+          <Button
+            onClick={() => setShowConfirm(true)}
+            className="mt-4 w-full"
+            style={{fontWeight: 500}}
+          >
+            검토 및 확인
+          </Button>
+        )}
+      </aside>
+
+      {/* 템플릿 타입 선택 모달 */}
+      <Dialog open={showTemplateOptions} onOpenChange={setShowTemplateOptions}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>템플릿 타입 선택</DialogTitle>
+            <DialogDescription>
+              해당 프로젝트는 기획용인가요, 개발용인가요?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="planning"
+                checked={selectedTemplateTypes.includes("planning")}
+                onChange={(e) => handleTemplateTypeChange("planning", e.target.checked)}
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="planning" className="text-sm font-medium text-foreground cursor-pointer">
+                기획용 템플릿
+              </label>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="development"
+                checked={selectedTemplateTypes.includes("development")}
+                onChange={(e) => handleTemplateTypeChange("development", e.target.checked)}
+                className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+              />
+              <label htmlFor="development" className="text-sm font-medium text-foreground cursor-pointer">
+                개발용 템플릿
+              </label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              onClick={handleTemplateGenerate} 
+              disabled={selectedTemplateTypes.length === 0}
+              className="w-full"
+              style={{fontWeight: 600}}
+            >
+              템플릿 생성하기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 팀원목록 모달 */}
+      <Dialog open={showTeamModal} onOpenChange={setShowTeamModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>팀원목록</DialogTitle>
+            <DialogDescription>
+              {project.name} 프로젝트에 참여중인 팀원들입니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 py-2">
+            {membersLoading ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">팀원 목록을 불러오는 중...</p>
+            ) : (
+            project.members.map((member) => (
+              <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/30">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-sm" style={{fontWeight: 600}}>
+                  {member.avatar}
+                </div>
+                <div className="flex flex-col flex-1">
+                  <span className="text-sm text-foreground" style={{fontWeight: 500}}>{member.name}</span>
+                  <span className="text-xs text-muted-foreground">{member.role}</span>
+                </div>
+                {member.role === "Leader" && (
+                  <div className="px-2 py-1 rounded-full bg-primary/20 text-primary text-xs" style={{fontWeight: 500}}>
+                    리더
+                  </div>
+                )}
+              </div>
+            ))
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowTeamModal(false)} className="w-full" style={{fontWeight: 500}}>
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 확인 다이얼로그 */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>프로젝트 세부사항 확인</DialogTitle>
+            <DialogDescription>
+              다음 항목이 포함되었는지 확인해 주세요: 제목, 목표, 팀 인원, 역할, 마감일, 산출물.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 py-2">
+            {summaryFields.map((f) => (
+              <div key={f.label} className="flex items-start gap-3">
+                <div
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                    f.value ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {f.value ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <circle cx="12" cy="12" r="1" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-muted-foreground">{f.label}</span>
+                  <span className="text-sm text-foreground">{f.value || "미입력"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {missingFields.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {missingFields.length}개 항목이 비어있습니다. 그대로 진행하거나 돌아가서 수정할 수 있습니다.
+            </p>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              수정
+            </Button>
+            <Button
+              onClick={() => {
+                setShowConfirm(false)
+                setShowTemplateOptions(true)
+              }}
+              className="font-medium"
+            >
+              확인 완료
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
