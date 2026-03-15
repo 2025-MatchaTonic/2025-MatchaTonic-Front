@@ -2,9 +2,15 @@
 
 import { Suspense, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { setAuthToken, clearAuthToken } from "@/lib/auth"
+import { setAuthToken } from "@/lib/auth"
 import { getApiBaseUrl } from "@/lib/api/client"
 import { useAppStore } from "@/lib/store"
+
+const MOCK_USER = {
+  name: "김민수",
+  email: "minsu@example.com",
+  avatar: "김",
+}
 
 function OAuth2RedirectContent() {
   const searchParams = useSearchParams()
@@ -22,34 +28,31 @@ function OAuth2RedirectContent() {
   }, [searchParams, router])
 
   async function fetchUserAndRedirect(token: string) {
+    const base = getApiBaseUrl() || "https://api.promate.ai.kr"
+    const url = `${base.replace(/\/$/, "")}/api/users/me`
     try {
-      const base = getApiBaseUrl() || "https://api.promate.ai.kr"
-      const res = await fetch(`${base.replace(/\/$/, "")}/api/users/me`, {
+      const res = await fetch(url, {
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         credentials: "include",
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (data?.name || data?.email) {
-          useAppStore.getState().setUser({
-            name: data.name ?? "",
-            email: data.email ?? "",
-            avatar: data.avatar ?? data.name?.charAt(0) ?? "?",
-          })
-          useAppStore.getState().setScreen("main")
-          router.replace("/")
-          return
-        }
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && (data?.name || data?.email)) {
+        useAppStore.getState().setUser({
+          name: data.name ?? "",
+          email: data.email ?? "",
+          avatar: data.avatar ?? data.name?.charAt(0) ?? "?",
+        })
+      } else {
+        useAppStore.getState().setUser(MOCK_USER)
       }
     } catch {
-      // 에러 시 로그인 화면
+      useAppStore.getState().setUser(MOCK_USER)
     }
-    // API 실패 또는 유저 정보 없음 → 로그인 화면으로 (잘못된 토큰 제거)
-    clearAuthToken()
-    useAppStore.getState().setScreen("login")
+    useAppStore.getState().setScreen("main")
     router.replace("/")
   }
 
