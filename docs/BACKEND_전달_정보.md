@@ -16,7 +16,7 @@
 
 ### 추가 CORS 헤더
 - `Access-Control-Allow-Credentials: true` (세션 쿠키 전송용)
-- `Access-Control-Allow-Headers: Content-Type`
+- `Access-Control-Allow-Headers: Content-Type, Authorization` (Bearer 토큰용)
 
 ---
 
