@@ -26,32 +26,46 @@ export default function Page() {
   useEffect(() => {
     setMounted(true)
 
-    // persist된 화면 상태 복원 (localStorage 직접 읽기 - rehydration 타이밍에 의존하지 않음)
     const fromHash = screenFromHash()
     let persistedScreen: Screen | null = null
+    let persistedUser: typeof user = null
+    let persistedProjectId: string | null = null
     try {
       const raw = localStorage.getItem("promate-storage")
       if (raw) {
         const parsed = JSON.parse(raw)
         const s = parsed?.state?.screen
         if (s && VALID_SCREENS.includes(s)) persistedScreen = s as Screen
+        if (parsed?.state?.user) persistedUser = parsed.state.user
+        if (parsed?.state?.currentProjectId) persistedProjectId = parsed.state.currentProjectId
       }
     } catch { /* ignore */ }
 
     const { user: u } = useAppStore.getState()
+    const resolvedUser = u || persistedUser
     const hasToken = !!getAuthToken()
-    const hasUser = !!(u || (persistedScreen && persistedScreen !== "login"))
 
-    if (hasUser && hasToken) {
+    // Zustand rehydration 전이라도 localStorage에서 user 복원
+    if (!u && persistedUser && hasToken) {
+      setUser(persistedUser)
+    }
+
+    if (resolvedUser && hasToken) {
       const target = fromHash && fromHash !== "login"
         ? fromHash
         : persistedScreen && persistedScreen !== "login"
           ? persistedScreen
           : "main"
+
+      // chat 화면이면 currentProjectId도 복원
+      if (target === "chat" && persistedProjectId) {
+        useAppStore.getState().setCurrentProjectId(persistedProjectId)
+      }
+
       skipPushRef.current = true
       setScreen(target)
       window.history.replaceState({ screen: target }, "", `/#${target}`)
-    } else if (u && !hasToken) {
+    } else if (resolvedUser && !hasToken) {
       setUser(null)
       setScreen("login")
     }
