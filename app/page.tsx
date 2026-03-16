@@ -18,8 +18,9 @@ function screenFromHash(): Screen | null {
 }
 
 export default function Page() {
-  const { screen, user, setScreen, setUser } = useAppStore()
+  const { screen, user, setScreen, setUser, _hasHydrated } = useAppStore()
   const skipPushRef = useRef(false)
+  const initializedRef = useRef(false)
 
   const navigateTo = useCallback(
     (s: Screen) => {
@@ -32,21 +33,28 @@ export default function Page() {
     [setScreen]
   )
 
-  // 최초 로드: URL hash에서 화면 복원
+  // hydration 완료 후 한 번만: hash에서 화면 복원 + 인증 체크
   useEffect(() => {
-    const fromHash = screenFromHash()
-    if (fromHash && fromHash !== "login") {
-      skipPushRef.current = true
-      setScreen(fromHash)
-      window.history.replaceState({ screen: fromHash }, "", `/#${fromHash}`)
-    } else if (screen !== "login") {
-      window.history.replaceState({ screen }, "", `/#${screen}`)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!_hasHydrated || initializedRef.current) return
+    initializedRef.current = true
 
-  // screen 변경 시 hash 동기화 (popstate에 의한 변경은 제외)
+    const fromHash = screenFromHash()
+    const restoredScreen = fromHash && fromHash !== "login" ? fromHash : screen
+
+    if (user && getAuthToken()) {
+      skipPushRef.current = true
+      setScreen(restoredScreen === "login" ? "main" : restoredScreen)
+      const target = restoredScreen === "login" ? "main" : restoredScreen
+      window.history.replaceState({ screen: target }, "", `/#${target}`)
+    } else if (user && !getAuthToken()) {
+      setUser(null)
+      setScreen("login")
+    }
+  }, [_hasHydrated, screen, user, setScreen, setUser])
+
+  // screen 변경 시 hash 동기화 (popstate 또는 초기화에 의한 변경은 제외)
   useEffect(() => {
+    if (!_hasHydrated) return
     if (skipPushRef.current) {
       skipPushRef.current = false
       return
@@ -56,7 +64,7 @@ export default function Page() {
     if (screen !== current && screen !== "login") {
       window.history.pushState({ screen }, "", `/#${screen}`)
     }
-  }, [screen])
+  }, [screen, _hasHydrated])
 
   // 브라우저 뒤로가기/앞으로가기
   useEffect(() => {
@@ -77,20 +85,17 @@ export default function Page() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [setScreen])
 
-  // 토큰 없이 user만 있으면(저장소 불일치) 로그아웃 처리
-  useEffect(() => {
-    if (user && !getAuthToken()) {
-      setUser(null)
-      navigateTo("login")
-    }
-  }, [user, setUser, navigateTo])
-
-  // 로그인 필수: user 없이 main 등에 있으면 로그인 화면으로
-  useEffect(() => {
-    if (!user && screen !== "login") {
-      navigateTo("login")
-    }
-  }, [user, screen, navigateTo])
+  // hydration 전이면 빈 화면 (깜빡임 방지)
+  if (!_hasHydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">로딩 중...</span>
+        </div>
+      </div>
+    )
+  }
 
   if (screen === "login" || !user) {
     return <LoginScreen />
