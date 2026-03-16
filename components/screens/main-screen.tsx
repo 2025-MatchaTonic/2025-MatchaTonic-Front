@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAppStore, type Project, type Role } from "@/lib/store"
 import { createProject, joinProject, fetchMyProjects, fetchProjectMembers } from "@/lib/api/projects"
+import { getApiBaseUrl } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -144,14 +145,32 @@ function getRelativeTime(date: Date): string {
 }
 
 export function MainScreen() {
-  const { projects, addProject, setScreen, setCurrentProjectId, user, syncProjectsFromApi } = useAppStore()
+  const { projects, addProject, setScreen, setCurrentProjectId, user, syncProjectsFromApi, updateProject } = useAppStore()
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_API_BASE_URL) return
+    if (!getApiBaseUrl()) return
     fetchMyProjects()
-      .then(syncProjectsFromApi)
+      .then((apiProjects) => {
+        syncProjectsFromApi(apiProjects)
+        apiProjects.forEach((p) => {
+          fetchProjectMembers(p.id)
+            .then((apiMembers) => {
+              const mapped = apiMembers.map((m, i) => ({
+                id: m.email || `member-${i}`,
+                name: m.name,
+                role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role,
+                avatar: m.name?.charAt(0) || "?",
+              }))
+              const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
+              if (proj) {
+                updateProject(proj.id, { members: mapped })
+              }
+            })
+            .catch(() => {})
+        })
+      })
       .catch(() => {})
-  }, [syncProjectsFromApi])
+  }, [syncProjectsFromApi, updateProject])
   const [showNew, setShowNew] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [newName, setNewName] = useState("")
