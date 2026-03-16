@@ -1018,19 +1018,17 @@ export function ChatScreen() {
                 <span style={{fontWeight: 500}}>프로젝트 주제를 입력하고 @mates를 태그해주세요</span>
               </div>
             )}
-            {!waitingForTopic && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setInput((prev) => (prev.includes("@mates") ? prev : prev ? `${prev} @mates ` : "@mates "))
-                  inputRef.current?.focus()
-                }}
-                className="h-8 text-xs font-medium shrink-0 self-start"
-              >
-                mates 호출하기
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setInput((prev) => (prev.includes("@mates") ? prev : prev ? `${prev} @mates ` : "@mates "))
+                inputRef.current?.focus()
+              }}
+              className="h-8 text-xs font-medium shrink-0 self-start"
+            >
+              mates 호출하기
+            </Button>
             <div className="flex items-center gap-2">
               <Input
                 key={inputKey}
