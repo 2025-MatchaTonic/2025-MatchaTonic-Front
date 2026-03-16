@@ -179,10 +179,12 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
   const isAI = message.sender === "ai"
   const { user } = useAppStore()
   const isMe = !isAI && (message.senderEmail === user?.email || !message.senderEmail)
-  const displayName = isAI ? "M" : isMe ? "나" : (message.senderName || "팀원")
+  const isRight = isMe
+  const avatarChar = isAI ? "M" : isMe ? "나" : (message.senderName?.charAt(0) || "?")
+  const senderLabel = isAI ? null : isMe ? null : (message.senderName || "팀원")
   
   return (
-    <div className={`flex gap-3 ${isAI ? "" : "flex-row-reverse"} animate-in slide-in-from-bottom-2 duration-500`}>
+    <div className={`flex gap-3 ${isRight ? "flex-row-reverse" : ""} animate-in slide-in-from-bottom-2 duration-500`}>
       {isSelectable && (
         <div className="flex items-center shrink-0">
           <input
@@ -197,17 +199,26 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
           isAI
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground"
+            : isMe
+              ? "bg-muted text-muted-foreground"
+              : "bg-blue-100 text-blue-700"
         }`}
       >
-        {displayName}
+        {avatarChar}
       </div>
-      <div className="max-w-[80%] flex flex-col gap-2">
+      <div className={`max-w-[80%] flex flex-col gap-1 ${isRight ? "items-end" : "items-start"}`}>
+        {senderLabel && (
+          <span className="text-xs text-muted-foreground px-1" style={{ fontWeight: 500 }}>
+            {senderLabel}
+          </span>
+        )}
         <div
           className={`rounded-xl px-4 py-2.5 text-sm leading-relaxed shadow-sm border ${
             isAI
               ? "bg-white text-foreground border-border/50"
-              : "bg-white text-foreground border-border/50"
+              : isMe
+                ? "bg-primary/10 text-foreground border-primary/20"
+                : "bg-white text-foreground border-border/50"
           } ${isSelected ? "ring-2 ring-primary/50 ring-offset-2" : ""}`}
         >
           {message.text.split('\n').map((line, index) => (
@@ -225,7 +236,6 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
             </div>
           ))}
         </div>
-        
         
         {message.hasButtons && !message.buttonClicked && message.buttons && (
           <div className="flex gap-2 mt-1">
