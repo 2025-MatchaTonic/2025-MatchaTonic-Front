@@ -288,40 +288,49 @@ export function ChatScreen() {
     project?.id ?? ""
   )
 
-  // 백엔드 API: 팀원 목록 + 초대 코드 조회 (채팅 화면 로드 시 + 팀원 모달 열릴 때)
+  // 백엔드 API: 팀원 목록 조회 (화면 로드 시 1회 + 모달 열릴 때)
+  const membersFetchedRef = useRef(false)
   useEffect(() => {
-    if (project?.backendProjectId) {
-      if (showTeamModal) setMembersLoading(true)
-      fetchProjectMembers(project.backendProjectId)
-        .then((apiMembers) => {
-          const user = useAppStore.getState().user
-          const mapped = apiMembers.map((m, i) => {
-            let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role
-            if (project.role === "Leader" && m.email === user?.email) role = "Leader"
-            return {
-              id: m.email || `member-${i}`,
-              name: m.name,
-              role,
-              avatar: m.name?.charAt(0) || "?",
-            }
-          })
-          updateProject(project.id, { members: mapped })
-        })
-        .catch(() => {})
-        .finally(() => setMembersLoading(false))
+    if (!project?.backendProjectId) return
+    if (membersFetchedRef.current && !showTeamModal) return
+    membersFetchedRef.current = true
 
-      // 초대 코드 조회 (없을 때만 로딩 표시, 있으면 백그라운드에서 갱신)
-      setInviteCodeLoading(!project.inviteCode)
-      fetchProjectDetails(project.backendProjectId)
-        .then((details) => {
-          if (details?.inviteCode) {
-            updateProject(project.id, { inviteCode: details.inviteCode })
+    setMembersLoading(true)
+    fetchProjectMembers(project.backendProjectId)
+      .then((apiMembers) => {
+        const currentUser = useAppStore.getState().user
+        const mapped = apiMembers.map((m, i) => {
+          let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role
+          if (project.role === "Leader" && m.email === currentUser?.email) role = "Leader"
+          return {
+            id: m.email || `member-${i}`,
+            name: m.name,
+            role,
+            avatar: m.name?.charAt(0) || "?",
           }
         })
-        .catch(() => {})
-        .finally(() => setInviteCodeLoading(false))
-    }
-  }, [showTeamModal, project?.backendProjectId, project?.id, project?.inviteCode, updateProject])
+        updateProject(project.id, { members: mapped })
+      })
+      .catch(() => {})
+      .finally(() => setMembersLoading(false))
+  }, [showTeamModal, project?.backendProjectId, project?.id, project?.role, updateProject])
+
+  // 백엔드 API: 초대 코드 조회 (화면 로드 시 1회)
+  const inviteCodeFetchedRef = useRef(false)
+  useEffect(() => {
+    if (!project?.backendProjectId || inviteCodeFetchedRef.current) return
+    inviteCodeFetchedRef.current = true
+
+    setInviteCodeLoading(true)
+    fetchProjectDetails(project.backendProjectId)
+      .then((details) => {
+        if (details?.inviteCode) {
+          updateProject(project.id, { inviteCode: details.inviteCode })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setInviteCodeLoading(false))
+  }, [project?.backendProjectId, project?.id, updateProject])
 
   // 백엔드 API: 과거 채팅 내역 조회
   // API가 빈 배열을 반환해도 기존(persist) 메시지를 덮어쓰지 않음
@@ -740,8 +749,8 @@ export function ChatScreen() {
     setInput("")
     if (inputRef.current) {
       inputRef.current.value = ""
-      inputRef.current.blur()
     }
+    setTimeout(() => inputRef.current?.focus(), 0)
     // 입력창 강제 리렌더
     setInputKey(prev => prev + 1)
     

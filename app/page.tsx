@@ -22,20 +22,36 @@ export default function Page() {
   const [mounted, setMounted] = useState(false)
   const skipPushRef = useRef(false)
 
-  // 클라이언트 마운트 감지 (Zustand persist는 이 시점에 이미 rehydration 완료)
+  // 클라이언트 마운트 감지 + 화면 복원
   useEffect(() => {
     setMounted(true)
 
-    // hash에서 화면 복원
+    // persist된 화면 상태 복원 (localStorage 직접 읽기 - rehydration 타이밍에 의존하지 않음)
     const fromHash = screenFromHash()
-    const { user: u, screen: s } = useAppStore.getState()
+    let persistedScreen: Screen | null = null
+    try {
+      const raw = localStorage.getItem("promate-storage")
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const s = parsed?.state?.screen
+        if (s && VALID_SCREENS.includes(s)) persistedScreen = s as Screen
+      }
+    } catch { /* ignore */ }
 
-    if (u && getAuthToken()) {
-      const target = fromHash && fromHash !== "login" ? fromHash : (s === "login" ? "main" : s)
+    const { user: u } = useAppStore.getState()
+    const hasToken = !!getAuthToken()
+    const hasUser = !!(u || (persistedScreen && persistedScreen !== "login"))
+
+    if (hasUser && hasToken) {
+      const target = fromHash && fromHash !== "login"
+        ? fromHash
+        : persistedScreen && persistedScreen !== "login"
+          ? persistedScreen
+          : "main"
       skipPushRef.current = true
       setScreen(target)
       window.history.replaceState({ screen: target }, "", `/#${target}`)
-    } else if (u && !getAuthToken()) {
+    } else if (u && !hasToken) {
       setUser(null)
       setScreen("login")
     }
