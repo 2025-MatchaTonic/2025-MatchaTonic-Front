@@ -34,6 +34,8 @@ export function mapChatMessageToAppFormat(
     sender: "user",
     text,
     timestamp,
+    senderEmail: item.senderEmail,
+    senderName: item.senderName,
   }
 }
 

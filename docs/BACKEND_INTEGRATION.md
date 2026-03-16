@@ -102,6 +102,7 @@ OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 |------|------|
 | 구독 | `/sub/project/{projectId}` |
 | 발신 | `/pub/chat/message` |
+| **메시지 페이로드** | `{ projectId, senderEmail, senderName, message, type?, createdAt? }` (senderEmail, senderName 필수 - 팀원 구분 및 중복 방지용) |
 | POST | `/api/projects` | 새 프로젝트 생성 |
 | POST | `/api/projects/join` | 초대 코드로 참여 |
 | POST | `/api/projects/{projectId}/export` | AI 분석 및 노션 내보내기 |
@@ -135,6 +136,7 @@ OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 
 ### GET /api/projects/{projectId} (프로젝트 상세)
 - **Response**: `{ id, name, subject, inviteCode?, ... }` (팀원목록 모달에서 초대 코드 표시용)
+- **inviteCode**: 초대된 멤버도 초대 코드를 볼 수 있어야 함 (공유용)
 
 ### GET /api/projects/{projectId}/members (팀원)
 - **Response**: `[{ name, email, role }]`

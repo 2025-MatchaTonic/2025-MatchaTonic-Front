@@ -21,6 +21,10 @@ export function useChatStomp(
     if (!projectId) return
 
     const client = createChatStompClient(projectId, (msg) => {
+      const { user } = useAppStore.getState()
+      if (msg.senderEmail && msg.senderEmail === user?.email) {
+        return
+      }
       const latest = useAppStore.getState().projects.find((p) => p.id === projectStoreId)
       if (latest) {
         updateProject(projectStoreId, {

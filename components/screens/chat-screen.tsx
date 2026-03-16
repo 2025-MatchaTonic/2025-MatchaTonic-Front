@@ -177,6 +177,9 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
   onToggleSelect?: () => void;
 }) {
   const isAI = message.sender === "ai"
+  const { user } = useAppStore()
+  const isMe = !isAI && (message.senderEmail === user?.email || !message.senderEmail)
+  const displayName = isAI ? "M" : isMe ? "나" : (message.senderName || "팀원")
   
   return (
     <div className={`flex gap-3 ${isAI ? "" : "flex-row-reverse"} animate-in slide-in-from-bottom-2 duration-500`}>
@@ -197,7 +200,7 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
             : "bg-muted text-muted-foreground"
         }`}
       >
-        {isAI ? "M" : "나"}
+        {displayName}
       </div>
       <div className="max-w-[80%] flex flex-col gap-2">
         <div
@@ -246,7 +249,7 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
 }
 
 export function ChatScreen() {
-  const { getCurrentProject, updateProject, setScreen, setCurrentProjectId, setExportedSelectedAnswers } = useAppStore()
+  const { getCurrentProject, updateProject, setScreen, setCurrentProjectId, setExportedSelectedAnswers, user } = useAppStore()
   const project = getCurrentProject()
 
   const [input, setInput] = useState("")
@@ -275,10 +278,10 @@ export function ChatScreen() {
     project?.id ?? ""
   )
 
-  // 백엔드 API: 팀원 목록 + 초대 코드 조회 (팀원 모달 열릴 때)
+  // 백엔드 API: 팀원 목록 + 초대 코드 조회 (채팅 화면 로드 시 + 팀원 모달 열릴 때)
   useEffect(() => {
-    if (showTeamModal && project?.backendProjectId) {
-      setMembersLoading(true)
+    if (project?.backendProjectId) {
+      if (showTeamModal) setMembersLoading(true)
       fetchProjectMembers(project.backendProjectId)
         .then((apiMembers) => {
           const user = useAppStore.getState().user
@@ -403,6 +406,8 @@ export function ChatScreen() {
         sender: "user",
         text: button.value,
         timestamp: new Date(),
+        senderEmail: user?.email,
+        senderName: user?.name,
       }
       
       updateProject(project.id, {
@@ -431,6 +436,8 @@ export function ChatScreen() {
         sender: "user",
         text: button.value,
         timestamp: new Date(),
+        senderEmail: user?.email,
+        senderName: user?.name,
       }
 
       updateProject(project.id, {
@@ -476,6 +483,8 @@ export function ChatScreen() {
       sender: "user",
       text: button.value,
       timestamp: new Date(),
+      senderEmail: user?.email,
+      senderName: user?.name,
     }
     
     updateProject(project.id, {
@@ -573,6 +582,8 @@ export function ChatScreen() {
       sender: "user",
       text: userText,
       timestamp: new Date(),
+      senderEmail: user?.email,
+      senderName: user?.name,
     }
 
     // 백엔드로 메시지 전송: WebSocket 우선, 미연결 시 REST API 폴백
