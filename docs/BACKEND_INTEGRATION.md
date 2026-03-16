@@ -110,6 +110,7 @@ OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 | Method | Path | 설명 |
 |--------|------|------|
 | GET | `/api/chat/{projectId}/messages` | 과거 채팅 내역 조회 |
+| POST | `/api/chat/{projectId}/messages` | 채팅 메시지 전송 (WebSocket 미동작 시 REST 폴백용, Request: `{ projectId, message }`) |
 
 ### AI
 | Method | Path | 설명 |
@@ -140,6 +141,10 @@ OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 
 ### GET /api/chat/{projectId}/messages (채팅 내역)
 - **Response**: `[{ type, projectId, senderEmail, senderName, message, createdAt }]`
+
+### POST /api/chat/{projectId}/messages (채팅 전송 - WebSocket 폴백)
+- **Request**: `{ message: string }`
+- **용도**: WebSocket이 동작하지 않을 때 REST로 메시지 저장 (동일하게 DB 저장 필요)
 
 ### POST /api/projects/{projectId}/export (노션 내보내기)
 - **Request**: `{ projectId: number, selectedAnswers: string[] }`

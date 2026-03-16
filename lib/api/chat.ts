@@ -49,3 +49,17 @@ export async function fetchChatMessages(
   const data = await res.json()
   return Array.isArray(data) ? data : []
 }
+
+/** REST API로 채팅 메시지 전송 (WebSocket 미동작 시 폴백) */
+export async function sendChatMessageViaApi(
+  projectId: number,
+  message: string
+): Promise<void> {
+  const res = await apiRequest(`/api/chat/${projectId}/messages`, {
+    method: "POST",
+    body: { message },
+  })
+  if (!res.ok) {
+    throw new Error(`채팅 전송 실패: ${res.status}`)
+  }
+}

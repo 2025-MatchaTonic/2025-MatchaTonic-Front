@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
-import { fetchChatMessages, mapChatMessageToAppFormat } from "@/lib/api/chat"
+import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } from "@/lib/api/chat"
 import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
@@ -575,9 +575,13 @@ export function ChatScreen() {
       timestamp: new Date(),
     }
 
-    // 백엔드 WebSocket으로 메시지 전송 (/pub/chat/message)
-    if (project.backendProjectId && stompConnected && stompSend) {
-      stompSend(userText)
+    // 백엔드로 메시지 전송: WebSocket 우선, 미연결 시 REST API 폴백
+    if (project.backendProjectId) {
+      if (stompConnected && stompSend) {
+        stompSend(userText)
+      } else {
+        sendChatMessageViaApi(project.backendProjectId, userText).catch(() => {})
+      }
     }
 
     // 주제 입력 대기 중인 경우 - @mates 호출 시에만 AI 응답
