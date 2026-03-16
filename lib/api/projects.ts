@@ -109,6 +109,26 @@ export interface JoinProjectResponse {
   [key: string]: unknown
 }
 
+function parseProjectIdFromResponse(responseData: unknown): number | null {
+  if (responseData && typeof responseData === "object" && "projectId" in responseData) {
+    const v = (responseData as { projectId: unknown }).projectId
+    if (typeof v === "number") return v
+  }
+  if (responseData && typeof responseData === "object" && "data" in responseData) {
+    const data = (responseData as { data?: unknown }).data
+    if (data && typeof data === "object" && "projectId" in data) {
+      const v = (data as { projectId: unknown }).projectId
+      if (typeof v === "number") return v
+    }
+  }
+  if (typeof responseData === "number" && !isNaN(responseData)) return responseData
+  if (responseData && typeof responseData === "object" && "id" in responseData) {
+    const id = (responseData as { id?: unknown }).id
+    if (typeof id === "number") return id
+  }
+  return null
+}
+
 export async function joinProject(
   data: JoinProjectRequest
 ): Promise<JoinProjectResponse> {
@@ -117,11 +137,6 @@ export async function joinProject(
     body: data,
   })
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`프로젝트 참여 실패: ${res.status} ${text}`)
-  }
-
   let responseData: unknown
   try {
     const text = await res.text()
@@ -129,22 +144,25 @@ export async function joinProject(
   } catch {
     responseData = null
   }
-  if (responseData && typeof responseData === "object" && "projectId" in responseData) {
-    return responseData as JoinProjectResponse
-  }
-  if (responseData && typeof responseData === "object" && "data" in responseData) {
-    const data = (responseData as { data?: unknown }).data
-    if (data && typeof data === "object" && "projectId" in data) {
-      return (data as { projectId: number }) as JoinProjectResponse
+
+  const projectId = parseProjectIdFromResponse(responseData)
+  if (projectId != null) {
+    return {
+      projectId,
+      ...(responseData && typeof responseData === "object" ? (responseData as JoinProjectResponse) : {}),
     }
   }
-  if (typeof responseData === "number" && !isNaN(responseData)) {
-    return { projectId: responseData }
+
+  if (!res.ok) {
+    const msg =
+      responseData && typeof responseData === "object" && "message" in responseData
+        ? String((responseData as { message: unknown }).message)
+        : responseData && typeof responseData === "object" && "error" in responseData
+          ? String((responseData as { error: unknown }).error)
+          : `프로젝트 참여 실패: ${res.status}`
+    throw new Error(msg)
   }
-  if (typeof responseData === "object" && "id" in responseData) {
-    const id = (responseData as { id?: unknown }).id
-    if (typeof id === "number") return { projectId: id }
-  }
+
   throw new Error("참여는 완료되었습니다. 페이지를 새로고침해 주세요.")
 }
 

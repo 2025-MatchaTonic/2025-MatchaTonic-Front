@@ -34,12 +34,17 @@ function ProjectCard({ project }: { project: Project }) {
       setMembersLoading(true)
       fetchProjectMembers(project.backendProjectId)
         .then((apiMembers) => {
-          const mapped = apiMembers.map((m, i) => ({
-            id: m.email || `member-${i}`,
-            name: m.name,
-            role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role,
-            avatar: m.name?.charAt(0) || "?",
-          }))
+          const user = useAppStore.getState().user
+          const mapped = apiMembers.map((m, i) => {
+            let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role
+            if (project.role === "Leader" && m.email === user?.email) role = "Leader"
+            return {
+              id: m.email || `member-${i}`,
+              name: m.name,
+              role,
+              avatar: m.name?.charAt(0) || "?",
+            }
+          })
           updateProject(project.id, { members: mapped })
         })
         .catch(() => {})
@@ -149,31 +154,35 @@ export function MainScreen() {
 
   useEffect(() => {
     if (!getApiBaseUrl()) return
-    fetchMyProjects()
-      .then((apiProjects) => {
-        syncProjectsFromApi(apiProjects)
-        apiProjects.forEach((p) => {
-          fetchProjectMembers(p.id)
-            .then((apiMembers) => {
-              const mapped = apiMembers.map((m, i) => ({
-                id: m.email || `member-${i}`,
-                name: m.name,
-                role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role,
-                avatar: m.name?.charAt(0) || "?",
-              }))
-              const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
-              if (proj) {
-                const myMember = apiMembers.find((m) => m.email === user?.email)
-                const myRole = myMember && ["Leader", "Member", "Designer", "Developer", "Researcher"].includes(myMember.role)
-                  ? (myMember.role as Role)
-                  : (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(p.role) ? p.role : "Member") as Role
-                updateProject(proj.id, { members: mapped, role: myRole })
-              }
-            })
-            .catch(() => {})
+    // persist rehydration 후에 sync 실행 (새로고침 시 대화 내역 유지)
+    const t = setTimeout(() => {
+      fetchMyProjects()
+        .then((apiProjects) => {
+            syncProjectsFromApi(apiProjects)
+          apiProjects.forEach((p) => {
+            fetchProjectMembers(p.id)
+              .then((apiMembers) => {
+                const mapped = apiMembers.map((m, i) => ({
+                  id: m.email || `member-${i}`,
+                  name: m.name,
+                  role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role,
+                  avatar: m.name?.charAt(0) || "?",
+                }))
+                const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
+                if (proj) {
+                  const myMember = apiMembers.find((m) => m.email === user?.email)
+                  const myRole = myMember && ["Leader", "Member", "Designer", "Developer", "Researcher"].includes(myMember.role)
+                    ? (myMember.role as Role)
+                    : (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(p.role) ? p.role : "Member") as Role
+                  updateProject(proj.id, { members: mapped, role: myRole })
+                }
+              })
+              .catch(() => {})
+          })
         })
-      })
-      .catch(() => {})
+        .catch(() => {})
+    }, 150)
+    return () => clearTimeout(t)
   }, [syncProjectsFromApi, updateProject, user?.email])
   const [showNew, setShowNew] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
@@ -334,7 +343,7 @@ export function MainScreen() {
       } else {
         const msg = err instanceof Error ? err.message : "프로젝트 참여에 실패했습니다."
         setJoinError(msg)
-        if (msg.includes("새로고침")) {
+        if (msg.includes("새로고침") || msg.includes("형식") || msg.includes("일치")) {
           const beforeIds = new Set(projects.map((p) => p.backendProjectId).filter(Boolean))
           fetchMyProjects()
             .then((apiProjects) => {

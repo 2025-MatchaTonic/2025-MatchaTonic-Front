@@ -281,29 +281,32 @@ export function ChatScreen() {
       setMembersLoading(true)
       fetchProjectMembers(project.backendProjectId)
         .then((apiMembers) => {
-          const mapped = apiMembers.map((m, i) => ({
-            id: m.email || `member-${i}`,
-            name: m.name,
-            role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role,
-            avatar: m.name?.charAt(0) || "?",
-          }))
+          const user = useAppStore.getState().user
+          const mapped = apiMembers.map((m, i) => {
+            let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role
+            if (project.role === "Leader" && m.email === user?.email) role = "Leader"
+            return {
+              id: m.email || `member-${i}`,
+              name: m.name,
+              role,
+              avatar: m.name?.charAt(0) || "?",
+            }
+          })
           updateProject(project.id, { members: mapped })
         })
         .catch(() => {})
         .finally(() => setMembersLoading(false))
 
-      // 초대 코드가 없으면 프로젝트 상세 조회 시도
-      if (!project.inviteCode) {
-        setInviteCodeLoading(true)
-        fetchProjectDetails(project.backendProjectId)
-          .then((details) => {
-            if (details?.inviteCode) {
-              updateProject(project.id, { inviteCode: details.inviteCode })
-            }
-          })
-          .catch(() => {})
-          .finally(() => setInviteCodeLoading(false))
-      }
+      // 초대 코드 조회 (없을 때만 로딩 표시, 있으면 백그라운드에서 갱신)
+      setInviteCodeLoading(!project.inviteCode)
+      fetchProjectDetails(project.backendProjectId)
+        .then((details) => {
+          if (details?.inviteCode) {
+            updateProject(project.id, { inviteCode: details.inviteCode })
+          }
+        })
+        .catch(() => {})
+        .finally(() => setInviteCodeLoading(false))
     }
   }, [showTeamModal, project?.backendProjectId, project?.id, project?.inviteCode, updateProject])
 
