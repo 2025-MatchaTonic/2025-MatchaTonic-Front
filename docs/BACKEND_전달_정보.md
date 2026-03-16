@@ -68,6 +68,12 @@
 | GET | `/api/projects/me` | 내 프로젝트 목록 |
 | GET | `/api/projects/{projectId}` | 프로젝트 상세 (초대 코드 등) |
 | GET | `/api/projects/{projectId}/members` | 팀원 목록 |
+
+### WebSocket (STOMP)
+| 용도 | 경로 |
+|------|------|
+| 구독 | `/sub/project/{projectId}` |
+| 발신 | `/pub/chat/message` |
 | POST | `/api/projects` | 프로젝트 생성 |
 | POST | `/api/projects/join` | 초대 코드로 참여 |
 | POST | `/api/projects/{projectId}/export` | 노션 내보내기 |

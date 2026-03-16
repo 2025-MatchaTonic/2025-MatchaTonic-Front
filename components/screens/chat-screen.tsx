@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
 import { fetchChatMessages, mapChatMessageToAppFormat } from "@/lib/api/chat"
 import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
+import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -268,6 +269,11 @@ export function ChatScreen() {
   const [membersLoading, setMembersLoading] = useState(false)
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false)
+
+  const { connected: stompConnected } = useChatStomp(
+    project?.backendProjectId,
+    project?.id ?? ""
+  )
 
   // 백엔드 API: 팀원 목록 + 초대 코드 조회 (팀원 모달 열릴 때)
   useEffect(() => {
@@ -953,9 +959,19 @@ export function ChatScreen() {
             >
               요약
             </Button>
-            <Badge variant="outline" className="text-xs">
-              진행중
-            </Badge>
+            <div className="flex items-center gap-2">
+              {project?.backendProjectId && (
+                <span
+                  className={`text-xs ${stompConnected ? "text-green-600" : "text-muted-foreground"}`}
+                  title={stompConnected ? "실시간 연결됨" : "연결 대기 중"}
+                >
+                  {stompConnected ? "●" : "○"}
+                </span>
+              )}
+              <Badge variant="outline" className="text-xs">
+                진행중
+              </Badge>
+            </div>
           </div>
         </div>
 

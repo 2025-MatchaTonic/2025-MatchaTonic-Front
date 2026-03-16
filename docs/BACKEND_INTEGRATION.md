@@ -87,6 +87,12 @@ const allowedOrigins = [
 | GET | `/api/projects/me` | 내 프로젝트 목록 조회 (inviteCode 포함 권장) |
 | GET | `/api/projects/{projectId}` | 프로젝트 상세 조회 (inviteCode 포함) |
 | GET | `/api/projects/{projectId}/members` | 팀원 목록 조회 |
+
+### WebSocket (STOMP)
+| 용도 | 경로 |
+|------|------|
+| 구독 | `/sub/project/{projectId}` |
+| 발신 | `/pub/chat/message` |
 | POST | `/api/projects` | 새 프로젝트 생성 |
 | POST | `/api/projects/join` | 초대 코드로 참여 |
 | POST | `/api/projects/{projectId}/export` | AI 분석 및 노션 내보내기 |
