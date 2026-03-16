@@ -46,7 +46,14 @@ export async function fetchProjectMembers(projectId: number): Promise<ProjectMem
   }
 
   const data = await res.json()
-  return Array.isArray(data) ? data : []
+  if (Array.isArray(data)) return data as ProjectMemberResponse[]
+  if (data && Array.isArray((data as { content?: unknown[] }).content))
+    return (data as { content: ProjectMemberResponse[] }).content
+  if (data && Array.isArray((data as { data?: unknown[] }).data))
+    return (data as { data: ProjectMemberResponse[] }).data
+  if (data && Array.isArray((data as { members?: unknown[] }).members))
+    return (data as { members: ProjectMemberResponse[] }).members
+  return []
 }
 
 export interface ProjectDetailsResponse {

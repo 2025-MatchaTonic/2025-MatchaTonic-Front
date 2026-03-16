@@ -272,11 +272,12 @@ export function ChatScreen() {
   )
 
   // 백엔드 API: 팀원 목록 조회 (화면 로드 시 1회 + 모달 열릴 때)
-  const membersFetchedRef = useRef(false)
+  const membersFetchedRef = useRef<string | null>(null)
   useEffect(() => {
     if (!project?.backendProjectId) return
-    if (membersFetchedRef.current && !showTeamModal) return
-    membersFetchedRef.current = true
+    const cacheKey = `${project.id}-${project.backendProjectId}`
+    if (membersFetchedRef.current === cacheKey && !showTeamModal) return
+    membersFetchedRef.current = cacheKey
 
     setMembersLoading(true)
     fetchProjectMembers(project.backendProjectId)
@@ -287,14 +288,14 @@ export function ChatScreen() {
           if (project.role === "Leader" && m.email === currentUser?.email) role = "Leader"
           return {
             id: m.email || `member-${i}`,
-            name: m.name,
+            name: m.name || m.email || "알 수 없음",
             role,
-            avatar: m.name?.charAt(0) || "?",
+            avatar: (m.name || m.email || "?")?.charAt(0) || "?",
           }
         })
         updateProject(project.id, { members: mapped })
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[팀원 목록] 조회 실패:", err))
       .finally(() => setMembersLoading(false))
   }, [showTeamModal, project?.backendProjectId, project?.id, project?.role, updateProject])
 
