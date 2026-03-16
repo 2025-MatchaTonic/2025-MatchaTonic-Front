@@ -1,6 +1,7 @@
 "use client"
 
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 export type Screen =
   | "login"
@@ -77,7 +78,9 @@ interface AppState {
   setExportedSelectedAnswers: (answers: string[]) => void
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
   screen: "login",
   setScreen: (screen) => set({ screen }),
   user: null,
@@ -128,4 +131,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   exportedSelectedAnswers: [],
   setExportedSelectedAnswers: (answers) => set({ exportedSelectedAnswers: answers }),
-}))
+}),
+    {
+      name: "promate-storage",
+      partialize: (state) => ({ user: state.user, screen: state.screen }),
+    }
+  )
+)
