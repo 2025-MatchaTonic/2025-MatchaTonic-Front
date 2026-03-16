@@ -148,7 +148,7 @@ function TypingIndicator() {
             <div className="w-2 h-2 bg-primary/60 rounded-full animate-typing" style={{animationDelay: '200ms'}}></div>
             <div className="w-2 h-2 bg-primary/60 rounded-full animate-typing" style={{animationDelay: '400ms'}}></div>
           </div>
-          <span className="text-xs text-muted-foreground">mates가 입력 중...</span>
+          <span className="text-xs text-muted-foreground">mates가 응답을 생성중입니다...</span>
         </div>
       </div>
     </div>
@@ -506,6 +506,7 @@ export function ChatScreen() {
 
     // 예/아니오 버튼 → 답변을 백엔드 AI에 전송하여 본격 대화 시작
     if (button.id === "yes" || button.id === "no") {
+      setIsAiTyping(true)
       const messageToSend = `@mates ${button.value}`
       if (project.backendProjectId) {
         if (stompConnected && stompSend) {
@@ -582,10 +583,24 @@ export function ChatScreen() {
     }
   }, [project, updateProject, isLoadingHistory])
 
+  // AI 응답 수신 시 로딩 해제
+  const prevMsgCountRef = useRef(project?.messages.length ?? 0)
+  useEffect(() => {
+    if (!project) return
+    const currentCount = project.messages.length
+    if (currentCount > prevMsgCountRef.current && isAiTyping) {
+      const lastMsg = project.messages[currentCount - 1]
+      if (lastMsg?.sender === "ai") {
+        setIsAiTyping(false)
+      }
+    }
+    prevMsgCountRef.current = currentCount
+  }, [project?.messages.length, project?.messages, isAiTyping])
+
   // 자동 스크롤
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [project?.messages.length])
+  }, [project?.messages.length, isAiTyping])
 
 
   if (!project) return null
@@ -621,6 +636,10 @@ export function ChatScreen() {
       messages: [...baseMessages, userMsg],
       lastUpdated: new Date(),
     })
+
+    if (userText.includes("@mates")) {
+      setIsAiTyping(true)
+    }
   }
 
   const handleSummaryUpdate = (field: string, value: string) => {
