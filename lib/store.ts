@@ -3,6 +3,20 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
+function reviveDates(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj === "string" && /^\d{4}-\d{2}-\d{2}T/.test(obj)) return new Date(obj)
+  if (Array.isArray(obj)) return obj.map(reviveDates)
+  if (typeof obj === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = k === "timestamp" || k === "lastUpdated" ? (typeof v === "string" ? new Date(v) : reviveDates(v)) : reviveDates(v)
+    }
+    return out
+  }
+  return obj
+}
+
 export type Screen =
   | "login"
   | "main"
@@ -136,7 +150,27 @@ export const useAppStore = create<AppState>()(
 }),
     {
       name: "promate-storage",
-      partialize: (state) => ({ user: state.user, screen: state.screen }),
+      partialize: (state) => ({
+        user: state.user,
+        screen: state.screen,
+        projects: state.projects,
+        currentProjectId: state.currentProjectId,
+      }),
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name)
+          if (!str) return null
+          try {
+            const parsed = JSON.parse(str)
+            if (parsed?.state) parsed.state = reviveDates(parsed.state)
+            return JSON.stringify(parsed)
+          } catch {
+            return str
+          }
+        },
+        setItem: (name, value) => localStorage.setItem(name, value),
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 )

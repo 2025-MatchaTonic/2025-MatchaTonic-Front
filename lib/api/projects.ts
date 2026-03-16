@@ -124,21 +124,28 @@ export async function joinProject(
 
   let responseData: unknown
   try {
-    responseData = await res.json()
+    const text = await res.text()
+    responseData = text ? JSON.parse(text) : null
   } catch {
     responseData = null
   }
   if (responseData && typeof responseData === "object" && "projectId" in responseData) {
     return responseData as JoinProjectResponse
   }
+  if (responseData && typeof responseData === "object" && "data" in responseData) {
+    const data = (responseData as { data?: unknown }).data
+    if (data && typeof data === "object" && "projectId" in data) {
+      return (data as { projectId: number }) as JoinProjectResponse
+    }
+  }
   if (typeof responseData === "number" && !isNaN(responseData)) {
     return { projectId: responseData }
   }
-  if (typeof responseData === "string") {
-    const projectId = parseInt(responseData, 10)
-    if (!isNaN(projectId)) return { projectId }
+  if (typeof responseData === "object" && "id" in responseData) {
+    const id = (responseData as { id?: unknown }).id
+    if (typeof id === "number") return { projectId: id }
   }
-  throw new Error("프로젝트 참여 응답 형식이 올바르지 않습니다.")
+  throw new Error("참여는 완료되었습니다. 페이지를 새로고침해 주세요.")
 }
 
 export interface ExportProjectRequest {

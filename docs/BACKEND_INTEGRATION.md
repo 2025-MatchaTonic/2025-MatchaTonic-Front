@@ -121,6 +121,7 @@ const allowedOrigins = [
 
 ### GET /api/projects/me (내 프로젝트)
 - **Response**: `[{ id, name, subject, role, status, chatRoomId, inviteCode? }]` (inviteCode 포함 권장)
+- **role**: 프로젝트 생성자는 `"Leader"`, 참여자는 `"Member"` 등
 
 ### GET /api/projects/{projectId} (프로젝트 상세)
 - **Response**: `{ id, name, subject, inviteCode?, ... }` (팀원목록 모달에서 초대 코드 표시용)

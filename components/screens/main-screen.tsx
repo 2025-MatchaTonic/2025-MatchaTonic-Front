@@ -163,14 +163,18 @@ export function MainScreen() {
               }))
               const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
               if (proj) {
-                updateProject(proj.id, { members: mapped })
+                const myMember = apiMembers.find((m) => m.email === user?.email)
+                const myRole = myMember && ["Leader", "Member", "Designer", "Developer", "Researcher"].includes(myMember.role)
+                  ? (myMember.role as Role)
+                  : (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(p.role) ? p.role : "Member") as Role
+                updateProject(proj.id, { members: mapped, role: myRole })
               }
             })
             .catch(() => {})
         })
       })
       .catch(() => {})
-  }, [syncProjectsFromApi, updateProject])
+  }, [syncProjectsFromApi, updateProject, user?.email])
   const [showNew, setShowNew] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [newName, setNewName] = useState("")
@@ -328,7 +332,24 @@ export function MainScreen() {
           }, 1500)
         }
       } else {
-        setJoinError(err instanceof Error ? err.message : "프로젝트 참여에 실패했습니다.")
+        const msg = err instanceof Error ? err.message : "프로젝트 참여에 실패했습니다."
+        setJoinError(msg)
+        if (msg.includes("새로고침")) {
+          const beforeIds = new Set(projects.map((p) => p.backendProjectId).filter(Boolean))
+          fetchMyProjects()
+            .then((apiProjects) => {
+              syncProjectsFromApi(apiProjects)
+              const proj = useAppStore.getState().projects.find((p) => p.backendProjectId && !beforeIds.has(p.backendProjectId))
+              if (proj) {
+                setJoinError("")
+                setCurrentProjectId(proj.id)
+                setShowJoin(false)
+                setJoinCode("")
+                setScreen("chat")
+              }
+            })
+            .catch(() => {})
+        }
       }
     } finally {
       setJoinLoading(false)
