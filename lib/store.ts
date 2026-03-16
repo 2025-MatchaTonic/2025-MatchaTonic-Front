@@ -91,7 +91,6 @@ export interface Project {
 }
 
 interface AppState {
-  _hasHydrated: boolean;
   screen: Screen;
   setScreen: (screen: Screen) => void;
   user: { name: string; email: string; avatar: string } | null;
@@ -122,7 +121,6 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      _hasHydrated: false,
       screen: "login",
       setScreen: (screen) => set({ screen }),
       user: null,
@@ -231,9 +229,6 @@ export const useAppStore = create<AppState>()(
         },
         setItem: (name, value) => localStorage.setItem(name, value),
         removeItem: (name) => localStorage.removeItem(name),
-      },
-      onRehydrateStorage: () => () => {
-        useAppStore.setState({ _hasHydrated: true });
       },
     }
   )

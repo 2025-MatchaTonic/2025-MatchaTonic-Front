@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAppStore, type Screen } from "@/lib/store"
 import { getAuthToken } from "@/lib/auth"
 import { TopNav } from "@/components/top-nav"
@@ -18,53 +18,41 @@ function screenFromHash(): Screen | null {
 }
 
 export default function Page() {
-  const { screen, user, setScreen, setUser, _hasHydrated } = useAppStore()
+  const { screen, user, setScreen, setUser } = useAppStore()
+  const [mounted, setMounted] = useState(false)
   const skipPushRef = useRef(false)
-  const initializedRef = useRef(false)
 
-  const navigateTo = useCallback(
-    (s: Screen) => {
-      setScreen(s)
-      if (typeof window !== "undefined") {
-        const hash = s === "login" ? "" : `#${s}`
-        window.history.pushState({ screen: s }, "", `/${hash}`)
-      }
-    },
-    [setScreen]
-  )
-
-  // hydration 완료 후 한 번만: hash에서 화면 복원 + 인증 체크
+  // 클라이언트 마운트 감지 (Zustand persist는 이 시점에 이미 rehydration 완료)
   useEffect(() => {
-    if (!_hasHydrated || initializedRef.current) return
-    initializedRef.current = true
+    setMounted(true)
 
+    // hash에서 화면 복원
     const fromHash = screenFromHash()
-    const restoredScreen = fromHash && fromHash !== "login" ? fromHash : screen
+    const { user: u, screen: s } = useAppStore.getState()
 
-    if (user && getAuthToken()) {
+    if (u && getAuthToken()) {
+      const target = fromHash && fromHash !== "login" ? fromHash : (s === "login" ? "main" : s)
       skipPushRef.current = true
-      setScreen(restoredScreen === "login" ? "main" : restoredScreen)
-      const target = restoredScreen === "login" ? "main" : restoredScreen
+      setScreen(target)
       window.history.replaceState({ screen: target }, "", `/#${target}`)
-    } else if (user && !getAuthToken()) {
+    } else if (u && !getAuthToken()) {
       setUser(null)
       setScreen("login")
     }
-  }, [_hasHydrated, screen, user, setScreen, setUser])
+  }, [setScreen, setUser])
 
-  // screen 변경 시 hash 동기화 (popstate 또는 초기화에 의한 변경은 제외)
+  // screen 변경 시 hash 동기화
   useEffect(() => {
-    if (!_hasHydrated) return
+    if (!mounted) return
     if (skipPushRef.current) {
       skipPushRef.current = false
       return
     }
-    if (typeof window === "undefined") return
     const current = screenFromHash()
     if (screen !== current && screen !== "login") {
       window.history.pushState({ screen }, "", `/#${screen}`)
     }
-  }, [screen, _hasHydrated])
+  }, [screen, mounted])
 
   // 브라우저 뒤로가기/앞으로가기
   useEffect(() => {
@@ -85,8 +73,8 @@ export default function Page() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [setScreen])
 
-  // hydration 전이면 빈 화면 (깜빡임 방지)
-  if (!_hasHydrated) {
+  // SSR/hydration 전이면 빈 화면
+  if (!mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
