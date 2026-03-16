@@ -68,10 +68,42 @@ export interface ProjectDetailsResponse {
 /** 프로젝트 상세 조회 (초대 코드 등) - 백엔드에 GET /api/projects/{projectId} 지원 필요 */
 export async function fetchProjectDetails(projectId: number): Promise<ProjectDetailsResponse | null> {
   const res = await apiRequest(`/api/projects/${projectId}`, { method: "GET" })
-  if (!res.ok) return null
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    console.warn(`[프로젝트 상세] 조회 실패: ${res.status} ${text}`)
+    return null
+  }
   try {
-    return await res.json()
+    const data = await res.json()
+
+    // 1) 평범한 객체에 inviteCode가 바로 있는 경우
+    if (data && typeof data === "object" && "inviteCode" in data) {
+      return data as ProjectDetailsResponse
+    }
+
+    // 2) { data: { inviteCode, ... } } 형태
+    if (data && typeof data === "object" && "data" in data) {
+      const inner = (data as { data?: unknown }).data
+      if (inner && typeof inner === "object" && "inviteCode" in inner) {
+        return inner as ProjectDetailsResponse
+      }
+    }
+
+    // 3) { content: { inviteCode, ... } } 또는 { content: [ { inviteCode } ] }
+    if (data && typeof data === "object" && "content" in data) {
+      const content = (data as { content?: unknown }).content
+      if (content && typeof content === "object" && !Array.isArray(content) && "inviteCode" in content) {
+        return content as ProjectDetailsResponse
+      }
+      if (Array.isArray(content) && content.length > 0 && typeof content[0] === "object" && "inviteCode" in content[0]!) {
+        return content[0] as ProjectDetailsResponse
+      }
+    }
+
+    // 4) 기타 케이스: 전체 객체를 그대로 반환 (inviteCode가 없을 수도 있음)
+    return data as ProjectDetailsResponse
   } catch {
+    console.warn("[프로젝트 상세] JSON 파싱 실패")
     return null
   }
 }
