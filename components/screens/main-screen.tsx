@@ -115,6 +115,28 @@ function ProjectCard({ project }: { project: Project }) {
             <DialogTitle>팀원 목록</DialogTitle>
             <DialogDescription>{project.name}</DialogDescription>
           </DialogHeader>
+          {/* 초대 코드 블록 (채팅 화면과 동일 UX) */}
+          <div className="flex flex-col gap-2 rounded-lg bg-muted/50 border border-border/50 p-4 mb-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              초대 코드
+            </span>
+            {project.inviteCode ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-lg font-bold tracking-widest text-foreground font-mono truncate">
+                    {project.inviteCode}
+                  </code>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  이 코드를 팀원에게 공유하여 프로젝트에 참여하도록 할 수 있습니다.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground py-2">
+                초대 코드를 불러올 수 없습니다.
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-3 py-2">
             {membersLoading ? (
               <p className="text-sm text-muted-foreground py-4 text-center">팀원 목록을 불러오는 중...</p>
