@@ -16,6 +16,7 @@ export interface MyProjectResponse {
   role: string
   status: string
   chatRoomId: number
+  inviteCode?: string
 }
 
 export async function fetchMyProjects(): Promise<MyProjectResponse[]> {

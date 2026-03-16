@@ -97,7 +97,7 @@ export const useAppStore = create<AppState>()(
     set((state) => ({
       projects: state.projects.map((p) => (p.id === id ? { ...p, ...updates } : p)),
     })),
-  syncProjectsFromApi: (apiProjects: { id: number; name: string; subject: string; role: string; status: string; chatRoomId: number }[]) =>
+  syncProjectsFromApi: (apiProjects: { id: number; name: string; subject: string; role: string; status: string; chatRoomId: number; inviteCode?: string }[]) =>
     set((state) => {
       const roleMap = (r: string): import("./store").Role =>
         ["Leader", "Member", "Designer", "Developer", "Researcher"].includes(r) ? (r as import("./store").Role) : "Member"
@@ -113,13 +113,15 @@ export const useAppStore = create<AppState>()(
           backendProjectId: api.id,
         }
         if (idx >= 0) {
-          updated[idx] = { ...updated[idx], ...base, lastUpdated: new Date() }
+          const merged = { ...updated[idx], ...base, lastUpdated: new Date() }
+          if (api.inviteCode) merged.inviteCode = api.inviteCode
+          updated[idx] = merged
         } else {
           updated.push({
             id: crypto.randomUUID(),
             ...base,
             lastUpdated: new Date(),
-            inviteCode: "",
+            inviteCode: api.inviteCode ?? "",
             members: [],
             messages: [],
             sessionSummary: emptySummary,

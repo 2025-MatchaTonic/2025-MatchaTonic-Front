@@ -266,6 +266,7 @@ export function ChatScreen() {
   const [waitingForTopic, setWaitingForTopic] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false)
 
   // 백엔드 API: 팀원 목록 조회 (팀원 모달 열릴 때)
   useEffect(() => {
@@ -1032,6 +1033,19 @@ export function ChatScreen() {
                 <span style={{fontWeight: 500}}>프로젝트 주제를 입력해주세요</span>
               </div>
             )}
+            {!waitingForTopic && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setInput((prev) => (prev.includes("@mates") ? prev : prev ? `${prev} @mates ` : "@mates "))
+                  inputRef.current?.focus()
+                }}
+                className="h-8 text-xs font-medium shrink-0 self-start"
+              >
+                mates 호출하기
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <Input
                 key={inputKey}
@@ -1145,6 +1159,30 @@ export function ChatScreen() {
               {project.name} 프로젝트에 참여중인 팀원들입니다.
             </DialogDescription>
           </DialogHeader>
+
+          {project.inviteCode && (
+            <div className="flex flex-col gap-2 rounded-lg bg-muted/50 border border-border/50 p-4">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">초대 코드</span>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-lg font-bold tracking-widest text-foreground font-mono truncate">
+                  {project.inviteCode}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(project.inviteCode)
+                    setInviteCodeCopied(true)
+                    setTimeout(() => setInviteCodeCopied(false), 2000)
+                  }}
+                  className="shrink-0 h-8 px-3 text-xs"
+                >
+                  {inviteCodeCopied ? "복사됨" : "복사"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">팀원에게 공유하여 프로젝트에 참여하도록 할 수 있습니다.</p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 py-2">
             {membersLoading ? (
