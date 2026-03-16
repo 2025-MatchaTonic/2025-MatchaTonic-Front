@@ -6,9 +6,23 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { fetchCurrentUser } from "@/lib/api/users"
 import { getApiBaseUrl } from "@/lib/api/client"
+import { getAuthToken, setAuthToken } from "@/lib/auth"
 
 export function LoginScreen() {
   const { setUser, setScreen } = useAppStore()
+
+  // OAuth 리다이렉트가 / 로 왔을 때 토큰 처리 (백엔드 redirect URI 오설정 대비)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get("token")
+    if (token && !getAuthToken()) {
+      setAuthToken(token)
+      window.history.replaceState({}, "", window.location.pathname)
+      window.location.reload()
+      return
+    }
+  }, [])
 
   // OAuth 콜백 후 돌아왔을 때 세션 확인
   useEffect(() => {
