@@ -533,11 +533,16 @@ export function ChatScreen() {
     if (shouldInit) {
       hasInitialized.current = true
       
-      // 타이핑 애니메이션 시작
       setIsAiTyping(true)
       
-      // 첫 번째 메시지 (인사) - 1.5초 후
       setTimeout(() => {
+        // setTimeout 시점에 최신 상태 재확인 (API가 그 사이에 메시지를 가져왔을 수 있음)
+        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+        if (latest && latest.messages.length > 0) {
+          setIsAiTyping(false)
+          return
+        }
+
         const greetingMsg: Message = {
           id: crypto.randomUUID(),
           sender: "ai",
@@ -545,17 +550,19 @@ export function ChatScreen() {
           timestamp: new Date(),
         }
         
+        const existingMessages = latest?.messages ?? []
         updateProject(project.id, {
-          messages: [greetingMsg],
+          messages: [...existingMessages, greetingMsg],
           lastUpdated: new Date(),
         })
         
-        // 두 번째 메시지 준비를 위해 다시 타이핑 시작
         setTimeout(() => {
           setIsAiTyping(true)
           
-          // 두 번째 메시지 (질문) - 추가 2초 후
           setTimeout(() => {
+            const latest2 = useAppStore.getState().projects.find((p) => p.id === project.id)
+            if (!latest2) { setIsAiTyping(false); return }
+
             const questionMsg: Message = {
               id: crypto.randomUUID(),
               sender: "ai",
@@ -568,13 +575,10 @@ export function ChatScreen() {
               ]
             }
             
-            const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
-            if (latest) {
-              updateProject(project.id, {
-                messages: [...latest.messages, questionMsg],
-                lastUpdated: new Date(),
-              })
-            }
+            updateProject(project.id, {
+              messages: [...latest2.messages, questionMsg],
+              lastUpdated: new Date(),
+            })
             setIsAiTyping(false)
           }, 2000)
         }, 800)
