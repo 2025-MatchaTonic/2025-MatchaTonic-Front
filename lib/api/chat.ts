@@ -15,6 +15,16 @@ export interface ChatMessageResponse {
   createdAt: string
 }
 
+const AI_SENDER_EMAILS = ["ai@promate.ai", "system@promate.ai", "mates@promate.ai"]
+const AI_MESSAGE_TYPES = ["SYSTEM", "AI"]
+
+function isAiMessage(item: ChatMessageResponse): boolean {
+  if (AI_MESSAGE_TYPES.includes(item.type?.toUpperCase?.())) return true
+  if (item.senderEmail && AI_SENDER_EMAILS.includes(item.senderEmail.toLowerCase())) return true
+  if (item.senderName?.toLowerCase() === "mates" || item.senderName?.toLowerCase() === "ai") return true
+  return false
+}
+
 /** API 응답을 앱 Message 형식으로 변환 */
 export function mapChatMessageToAppFormat(
   item: ChatMessageResponse,
@@ -29,9 +39,11 @@ export function mapChatMessageToAppFormat(
     text = `${item.senderName}님이 퇴장했습니다.`
   }
 
+  const sender = isAiMessage(item) ? "ai" : "user"
+
   return {
     id: `api-${item.projectId}-${item.createdAt}-${index}`,
-    sender: "user",
+    sender,
     text,
     timestamp,
     senderEmail: item.senderEmail,
@@ -59,13 +71,16 @@ export async function fetchChatMessages(
 /** REST API로 채팅 메시지 전송 (WebSocket 미동작 시 폴백) */
 export async function sendChatMessageViaApi(
   projectId: number,
-  message: string
+  message: string,
+  senderEmail?: string,
+  senderName?: string
 ): Promise<void> {
   const res = await apiRequest(`/api/chat/${projectId}/messages`, {
     method: "POST",
-    body: { message },
+    body: { type: "TALK", projectId, message, senderEmail, senderName },
   })
   if (!res.ok) {
+    console.warn(`[REST 폴백] 채팅 전송 실패: ${res.status}`)
     throw new Error(`채팅 전송 실패: ${res.status}`)
   }
 }

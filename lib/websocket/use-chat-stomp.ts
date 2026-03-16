@@ -74,6 +74,7 @@ export function useChatStomp(
       const { user } = useAppStore.getState()
       recentSentRef.current.set(message, Date.now())
       sendChatMessage(clientRef.current, {
+        type: "TALK",
         projectId,
         message,
         senderEmail: user?.email ?? "",

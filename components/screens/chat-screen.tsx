@@ -626,7 +626,8 @@ export function ChatScreen() {
       if (stompConnected && stompSend) {
         stompSend(userText)
       } else {
-        sendChatMessageViaApi(project.backendProjectId, userText).catch(() => {})
+        sendChatMessageViaApi(project.backendProjectId, userText, user?.email, user?.name)
+          .catch((err) => console.warn("[REST 폴백] 전송 실패:", err))
       }
     }
 
