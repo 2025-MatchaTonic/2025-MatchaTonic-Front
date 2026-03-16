@@ -85,7 +85,10 @@ const allowedOrigins = [
 ### OAuth2 로그인 후 리다이렉트 (필수)
 OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 - **프로덕션**: `https://promate.ai.kr/oauth2/redirect?token={JWT토큰}`
+- **Vercel**: `https://2025-matchatonic-front.vercel.app/oauth2/redirect?token={JWT토큰}`
 - **로컬**: `http://localhost:3000/oauth2/redirect?token={JWT토큰}` (또는 `access_token` 파라미터명)
+
+**간헐적 로그인 실패 시 확인**: 사용자가 접속한 도메인(promate.ai.kr vs vercel.app)에 따라 리다이렉트 URL이 달라져야 합니다. Referer/Origin 기반으로 동일 도메인으로 리다이렉트해 주세요.
 
 ### 프로젝트
 | Method | Path | 설명 |

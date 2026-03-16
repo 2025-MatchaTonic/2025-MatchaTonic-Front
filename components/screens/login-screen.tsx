@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import { fetchCurrentUser } from "@/lib/api/users"
 import { getApiBaseUrl } from "@/lib/api/client"
-import { getAuthToken, setAuthToken } from "@/lib/auth"
+import { getAuthToken, setAuthToken, clearAuthToken } from "@/lib/auth"
+import { getOAuthLoginUrl } from "@/lib/oauth"
 
 export function LoginScreen() {
   const { setUser, setScreen } = useAppStore()
@@ -108,7 +109,7 @@ export function LoginScreen() {
               style={{fontWeight: 500}}
               variant="outline"
             >
-              <a href="https://api.promate.ai.kr/oauth2/authorization/google">
+              <a href={getOAuthLoginUrl()}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -137,15 +138,27 @@ export function LoginScreen() {
             <p className="text-xs text-muted-foreground/80 text-center">
               로그인이 안 되면{" "}
               <a
-                href="https://api.promate.ai.kr/oauth2/authorization/google"
+                href={getOAuthLoginUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:text-foreground"
               >
                 새 창에서 열기
               </a>
-              {" "}또는 시크릿 창에서 시도해 보세요.
+              {" "}또는{" "}
+              <span className="font-medium">시크릿 모드(Ctrl+Shift+N)</span>
+              {" "}에서 시도해 보세요. 시크릿 모드에서 되면 브라우저 쿠키를 삭제하면 해결됩니다.
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                clearAuthToken()
+                window.location.reload()
+              }}
+              className="text-xs text-muted-foreground/70 hover:text-foreground underline mt-1"
+            >
+              저장된 로그인 정보 초기화
+            </button>
           </div>
         </div>
       </div>
