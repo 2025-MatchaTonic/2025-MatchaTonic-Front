@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
 import { fetchChatMessages, mapChatMessageToAppFormat } from "@/lib/api/chat"
-import { fetchProjectMembers } from "@/lib/api/projects"
+import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { generateProjectTemplates } from "@/lib/api/ai"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -266,9 +266,10 @@ export function ChatScreen() {
   const [waitingForTopic, setWaitingForTopic] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false)
 
-  // 백엔드 API: 팀원 목록 조회 (팀원 모달 열릴 때)
+  // 백엔드 API: 팀원 목록 + 초대 코드 조회 (팀원 모달 열릴 때)
   useEffect(() => {
     if (showTeamModal && project?.backendProjectId) {
       setMembersLoading(true)
@@ -284,8 +285,21 @@ export function ChatScreen() {
         })
         .catch(() => {})
         .finally(() => setMembersLoading(false))
+
+      // 초대 코드가 없으면 프로젝트 상세 조회 시도
+      if (!project.inviteCode) {
+        setInviteCodeLoading(true)
+        fetchProjectDetails(project.backendProjectId)
+          .then((details) => {
+            if (details?.inviteCode) {
+              updateProject(project.id, { inviteCode: details.inviteCode })
+            }
+          })
+          .catch(() => {})
+          .finally(() => setInviteCodeLoading(false))
+      }
     }
-  }, [showTeamModal, project?.backendProjectId, project?.id, updateProject])
+  }, [showTeamModal, project?.backendProjectId, project?.id, project?.inviteCode, updateProject])
 
   // 백엔드 API: 과거 채팅 내역 조회
   useEffect(() => {
@@ -1160,29 +1174,37 @@ export function ChatScreen() {
             </DialogDescription>
           </DialogHeader>
 
-          {project.inviteCode && (
-            <div className="flex flex-col gap-2 rounded-lg bg-muted/50 border border-border/50 p-4">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">초대 코드</span>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-lg font-bold tracking-widest text-foreground font-mono truncate">
-                  {project.inviteCode}
-                </code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(project.inviteCode)
-                    setInviteCodeCopied(true)
-                    setTimeout(() => setInviteCodeCopied(false), 2000)
-                  }}
-                  className="shrink-0 h-8 px-3 text-xs"
-                >
-                  {inviteCodeCopied ? "복사됨" : "복사"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">팀원에게 공유하여 프로젝트에 참여하도록 할 수 있습니다.</p>
-            </div>
-          )}
+          <div className="flex flex-col gap-2 rounded-lg bg-muted/50 border border-border/50 p-4">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">초대 코드</span>
+            {inviteCodeLoading ? (
+              <p className="text-sm text-muted-foreground py-2">불러오는 중...</p>
+            ) : project.inviteCode ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-lg font-bold tracking-widest text-foreground font-mono truncate">
+                    {project.inviteCode}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(project.inviteCode)
+                      setInviteCodeCopied(true)
+                      setTimeout(() => setInviteCodeCopied(false), 2000)
+                    }}
+                    className="shrink-0 h-8 px-3 text-xs"
+                  >
+                    {inviteCodeCopied ? "복사됨" : "복사"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">팀원에게 공유하여 프로젝트에 참여하도록 할 수 있습니다.</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground py-2">
+                초대 코드를 불러올 수 없습니다.
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-col gap-3 py-2">
             {membersLoading ? (

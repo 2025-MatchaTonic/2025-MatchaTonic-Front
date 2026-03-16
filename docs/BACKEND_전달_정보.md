@@ -66,6 +66,7 @@
 |--------|------|------|
 | GET | `/api/users/me` | 로그인 유저 정보 |
 | GET | `/api/projects/me` | 내 프로젝트 목록 |
+| GET | `/api/projects/{projectId}` | 프로젝트 상세 (초대 코드 등) |
 | GET | `/api/projects/{projectId}/members` | 팀원 목록 |
 | POST | `/api/projects` | 프로젝트 생성 |
 | POST | `/api/projects/join` | 초대 코드로 참여 |

@@ -84,7 +84,8 @@ const allowedOrigins = [
 ### 프로젝트
 | Method | Path | 설명 |
 |--------|------|------|
-| GET | `/api/projects/me` | 내 프로젝트 목록 조회 |
+| GET | `/api/projects/me` | 내 프로젝트 목록 조회 (inviteCode 포함 권장) |
+| GET | `/api/projects/{projectId}` | 프로젝트 상세 조회 (inviteCode 포함) |
 | GET | `/api/projects/{projectId}/members` | 팀원 목록 조회 |
 | POST | `/api/projects` | 새 프로젝트 생성 |
 | POST | `/api/projects/join` | 초대 코드로 참여 |
@@ -113,7 +114,10 @@ const allowedOrigins = [
 - **Response**: `{ projectId: number }` 또는 projectId 포함 객체
 
 ### GET /api/projects/me (내 프로젝트)
-- **Response**: `[{ id, name, subject, role, status, chatRoomId }]`
+- **Response**: `[{ id, name, subject, role, status, chatRoomId, inviteCode? }]` (inviteCode 포함 권장)
+
+### GET /api/projects/{projectId} (프로젝트 상세)
+- **Response**: `{ id, name, subject, inviteCode?, ... }` (팀원목록 모달에서 초대 코드 표시용)
 
 ### GET /api/projects/{projectId}/members (팀원)
 - **Response**: `[{ name, email, role }]`

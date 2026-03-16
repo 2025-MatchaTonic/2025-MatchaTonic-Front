@@ -49,6 +49,26 @@ export async function fetchProjectMembers(projectId: number): Promise<ProjectMem
   return Array.isArray(data) ? data : []
 }
 
+export interface ProjectDetailsResponse {
+  id?: number
+  projectId?: number
+  name?: string
+  subject?: string
+  inviteCode?: string
+  [key: string]: unknown
+}
+
+/** 프로젝트 상세 조회 (초대 코드 등) - 백엔드에 GET /api/projects/{projectId} 지원 필요 */
+export async function fetchProjectDetails(projectId: number): Promise<ProjectDetailsResponse | null> {
+  const res = await apiRequest(`/api/projects/${projectId}`, { method: "GET" })
+  if (!res.ok) return null
+  try {
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 export interface CreateProjectRequest {
   name: string
   subject: string
