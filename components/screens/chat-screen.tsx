@@ -461,7 +461,7 @@ export function ChatScreen() {
       msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg
     )
     
-    // 사용자 응답 메시지 추가
+    // 사용자 응답 메시지 추가 (AI 응답 없음 - @mates 호출 시에만 응답)
     const userMsg: Message = {
       id: crypto.randomUUID(),
       sender: "user",
@@ -474,38 +474,9 @@ export function ChatScreen() {
       lastUpdated: new Date(),
     })
     
-    // AI 응답 추가 (주제 유무에 따라 다른 질문)
-    setTimeout(() => {
-      setIsAiTyping(true)
-      
-      setTimeout(() => {
-        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
-        if (!latest) return
-        
-        let aiResponse = ""
-        if (button.id === "yes") {
-          aiResponse = "좋습니다! 프로젝트 주제나 해결하려는 문제를 간단히 설명해주세요."
-          setWaitingForTopic(true)
-        } else {
-          aiResponse = "해결하고 싶은 문제나 일상생활속 문제가 있으셨나요?"
-          setWaitingForTopic(true)
-        }
-        
-        const aiMsg: Message = {
-          id: crypto.randomUUID(),
-          sender: "ai",
-          text: aiResponse,
-          timestamp: new Date(),
-        }
-        
-        updateProject(project.id, {
-          messages: [...latest.messages, aiMsg],
-          lastUpdated: new Date(),
-        })
-        
-        setIsAiTyping(false)
-      }, 1500)
-    }, 800)
+    if (button.id === "yes" || button.id === "no") {
+      setWaitingForTopic(true)
+    }
   }
 
   const phase = project?.topic ? "definition" : "discovery"
@@ -595,40 +566,40 @@ export function ChatScreen() {
       timestamp: new Date(),
     }
 
-    // 주제 입력 대기 중인 경우
+    // 주제 입력 대기 중인 경우 - @mates 호출 시에만 AI 응답
     if (waitingForTopic) {
-      // @mates 태그 제거 후 topic 저장
+      if (!userText.includes("@mates")) {
+        // @mates 없으면 사용자 메시지만 추가
+        updateProject(project.id, {
+          messages: [...baseMessages, userMsg],
+          lastUpdated: new Date(),
+        })
+        return
+      }
       const topicText = userText.replace(/@mates/g, "").trim()
-      
       updateProject(project.id, {
         messages: [...baseMessages, userMsg],
         topic: topicText,
         lastUpdated: new Date(),
       })
-
       setWaitingForTopic(false)
       setIsAiTyping(true)
-
-      // AI 응답
       setTimeout(() => {
-        const aiMsg: Message = {
-          id: crypto.randomUUID(),
-          sender: "ai",
-          text: "감사합니다! 이제 프로젝트 기획을 시작해보겠습니다.\n추가로 도움이 필요하시면 @mates를 태그해주세요.",
-          timestamp: new Date(),
-        }
-
         const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
         if (latest) {
+          const aiMsg: Message = {
+            id: crypto.randomUUID(),
+            sender: "ai",
+            text: "감사합니다! 이제 프로젝트 기획을 시작해보겠습니다.\n추가로 도움이 필요하시면 @mates를 태그해주세요.",
+            timestamp: new Date(),
+          }
           updateProject(project.id, {
             messages: [...latest.messages, aiMsg],
             lastUpdated: new Date(),
           })
         }
-        
         setIsAiTyping(false)
       }, 1500)
-      
       return
     }
 
@@ -996,8 +967,8 @@ export function ChatScreen() {
         )}
 
         {/* 메시지 */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6">
-          <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <div className="flex-1 overflow-y-auto px-3 py-4 md:px-4">
+          <div className="mx-auto flex max-w-4xl flex-col gap-4 w-full">
             {isLoadingHistory && project.messages.length === 0 && (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 채팅 내역을 불러오는 중...
@@ -1019,8 +990,8 @@ export function ChatScreen() {
         </div>
 
         {/* 입력 */}
-        <div className="border-t border-border px-4 py-3 md:px-6">
-          <div className="mx-auto flex max-w-2xl flex-col gap-2">
+        <div className="border-t border-border px-3 py-3 md:px-4">
+          <div className="mx-auto flex max-w-4xl flex-col gap-2 w-full">
             {hasSelectedMessages && (
               <Button
                 onClick={handleSubmitSelected}
@@ -1044,7 +1015,7 @@ export function ChatScreen() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                <span style={{fontWeight: 500}}>프로젝트 주제를 입력해주세요</span>
+                <span style={{fontWeight: 500}}>프로젝트 주제를 입력하고 @mates를 태그해주세요</span>
               </div>
             )}
             {!waitingForTopic && (
@@ -1064,7 +1035,7 @@ export function ChatScreen() {
               <Input
                 key={inputKey}
                 ref={inputRef}
-                placeholder={waitingForTopic ? "프로젝트 주제를 입력해주세요..." : "@mates를 태그해서 AI에게 질문하세요..."}
+                placeholder={waitingForTopic ? "프로젝트 주제를 입력하고 @mates를 태그해주세요..." : "@mates를 태그해서 AI에게 질문하세요..."}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
