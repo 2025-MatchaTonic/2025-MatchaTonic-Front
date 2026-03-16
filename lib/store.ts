@@ -31,12 +31,8 @@ export type Screen =
   | "chat"
   | "export-notion";
 
-export type Role =
-  | "Leader"
-  | "Member"
-  | "Designer"
-  | "Developer"
-  | "Researcher";
+// 백엔드에서 내려오는 역할 문자열을 그대로 표시하기 위해 넓은 타입 사용
+export type Role = string;
 
 export interface TeamMember {
   id: string;

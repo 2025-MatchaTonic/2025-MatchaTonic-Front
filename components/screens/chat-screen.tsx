@@ -284,8 +284,11 @@ export function ChatScreen() {
       .then((apiMembers) => {
         const currentUser = useAppStore.getState().user
         const mapped = apiMembers.map((m, i) => {
-          let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as import("@/lib/store").Role
-          if (project.role === "Leader" && m.email === currentUser?.email) role = "Leader"
+          const baseRole = m.role || "Member"
+          const role =
+            project.role === "Leader" && m.email === currentUser?.email
+              ? "Leader"
+              : baseRole
           return {
             id: m.email || `member-${i}`,
             name: m.name || m.email || "알 수 없음",

@@ -36,8 +36,11 @@ function ProjectCard({ project }: { project: Project }) {
         .then((apiMembers) => {
           const user = useAppStore.getState().user
           const mapped = apiMembers.map((m, i) => {
-            let role = (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role
-            if (project.role === "Leader" && m.email === user?.email) role = "Leader"
+            const baseRole = m.role || "Member"
+            const role =
+              project.role === "Leader" && m.email === user?.email
+                ? "Leader"
+                : baseRole
             return {
               id: m.email || `member-${i}`,
               name: m.name,
@@ -165,15 +168,16 @@ export function MainScreen() {
                 const mapped = apiMembers.map((m, i) => ({
                   id: m.email || `member-${i}`,
                   name: m.name,
-                  role: (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(m.role) ? m.role : "Member") as Role,
+                  role: m.role || "Member",
                   avatar: m.name?.charAt(0) || "?",
                 }))
                 const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
                 if (proj) {
                   const myMember = apiMembers.find((m) => m.email === user?.email)
-                  const myRole = myMember && ["Leader", "Member", "Designer", "Developer", "Researcher"].includes(myMember.role)
-                    ? (myMember.role as Role)
-                    : (["Leader", "Member", "Designer", "Developer", "Researcher"].includes(p.role) ? p.role : "Member") as Role
+                  const myRole =
+                    (myMember?.role as Role | undefined) ||
+                    (p.role as Role | undefined) ||
+                    "Member"
                   updateProject(proj.id, { members: mapped, role: myRole })
                 }
               })
@@ -251,7 +255,7 @@ export function MainScreen() {
           lastUpdated: new Date(),
           inviteCode: code,
           members: [
-            { id: "1", name: user?.name || "나", role: "Leader", avatar: user?.avatar || "나" },
+            { id: "1", name: user?.name || "나", role: "Leader" as Role, avatar: user?.avatar || "나" },
           ],
           messages: [],
           sessionSummary: { title: "", goal: "", teamSize: "", roles: "", dueDate: "", deliverables: "" },
