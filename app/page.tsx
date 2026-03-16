@@ -20,6 +20,7 @@ function screenFromHash(): Screen | null {
 export default function Page() {
   const { screen, user, setScreen, setUser } = useAppStore()
   const [mounted, setMounted] = useState(false)
+  const [hasSession, setHasSession] = useState(false)
   const skipPushRef = useRef(false)
 
   // 클라이언트 마운트 + 상태 복원
@@ -59,6 +60,7 @@ export default function Page() {
       skipPushRef.current = true
       setScreen(target)
       window.history.replaceState({ screen: target }, "", `/#${target}`)
+      setHasSession(true)
     } else if (resolvedUser && !hasToken) {
       setUser(null)
       setScreen("login")
@@ -66,6 +68,13 @@ export default function Page() {
 
     setMounted(true)
   }, [setScreen, setUser])
+
+  // hasSession인데 user hook이 아직 안 따라왔으면 3초 후 포기
+  useEffect(() => {
+    if (!mounted || !hasSession || user) return
+    const timer = setTimeout(() => setHasSession(false), 3000)
+    return () => clearTimeout(timer)
+  }, [mounted, hasSession, user])
 
   // screen 변경 시 hash 동기화
   useEffect(() => {
@@ -99,7 +108,8 @@ export default function Page() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [setScreen])
 
-  if (!mounted) {
+  // 마운트 전 또는 세션 복원 대기 중 → 로딩
+  if (!mounted || (hasSession && !user)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">
