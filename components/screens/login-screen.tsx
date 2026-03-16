@@ -39,7 +39,11 @@ export function LoginScreen() {
             email: data.email ?? "",
             avatar: data.avatar ?? data.name?.charAt(0) ?? "?",
           });
-          setScreen("main");
+          // 이미 복원된 화면이 있으면 유지, 없으면 main으로 이동
+          const currentScreen = useAppStore.getState().screen;
+          if (currentScreen === "login") {
+            setScreen("main");
+          }
         }
       })
       .catch(() => {});

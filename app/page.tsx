@@ -17,22 +17,6 @@ function screenFromHash(): Screen | null {
   return VALID_SCREENS.includes(h as Screen) ? (h as Screen) : null
 }
 
-function readPersistedState() {
-  try {
-    const raw = localStorage.getItem("promate-storage")
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    const s = parsed?.state?.screen
-    return {
-      screen: (s && VALID_SCREENS.includes(s) ? s : null) as Screen | null,
-      user: parsed?.state?.user ?? null,
-      currentProjectId: parsed?.state?.currentProjectId ?? null,
-    }
-  } catch {
-    return null
-  }
-}
-
 export default function Page() {
   const { screen, user, setScreen, setUser } = useAppStore()
   const [mounted, setMounted] = useState(false)
@@ -41,24 +25,35 @@ export default function Page() {
   // 클라이언트 마운트 + 상태 복원
   useEffect(() => {
     const fromHash = screenFromHash()
-    const persisted = readPersistedState()
-    const hasToken = !!getAuthToken()
+    let persistedScreen: Screen | null = null
+    let persistedUser: typeof user = null
+    let persistedProjectId: string | null = null
+    try {
+      const raw = localStorage.getItem("promate-storage")
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const s = parsed?.state?.screen
+        if (s && VALID_SCREENS.includes(s)) persistedScreen = s as Screen
+        if (parsed?.state?.user) persistedUser = parsed.state.user
+        if (parsed?.state?.currentProjectId) persistedProjectId = parsed.state.currentProjectId
+      }
+    } catch { /* ignore */ }
+
     const storeState = useAppStore.getState()
-    const resolvedUser = storeState.user || persisted?.user
+    const resolvedUser = storeState.user || persistedUser
+    const hasToken = !!getAuthToken()
 
     if (resolvedUser && hasToken) {
-      if (!storeState.user && persisted?.user) {
-        setUser(persisted.user)
-      }
+      if (!storeState.user && persistedUser) setUser(persistedUser)
 
       const target = fromHash && fromHash !== "login"
         ? fromHash
-        : persisted?.screen && persisted.screen !== "login"
-          ? persisted.screen
+        : persistedScreen && persistedScreen !== "login"
+          ? persistedScreen
           : "main"
 
-      if (target === "chat" && persisted?.currentProjectId) {
-        useAppStore.getState().setCurrentProjectId(persisted.currentProjectId)
+      if (target === "chat" && persistedProjectId) {
+        useAppStore.getState().setCurrentProjectId(persistedProjectId)
       }
 
       skipPushRef.current = true
@@ -69,8 +64,7 @@ export default function Page() {
       setScreen("login")
     }
 
-    // store 업데이트가 커밋된 후에 mounted 전환
-    requestAnimationFrame(() => setMounted(true))
+    setMounted(true)
   }, [setScreen, setUser])
 
   // screen 변경 시 hash 동기화
@@ -116,24 +110,7 @@ export default function Page() {
     )
   }
 
-  // 토큰이 없으면 로그인 화면
-  if (!getAuthToken()) {
-    return <LoginScreen />
-  }
-
-  // 토큰은 있는데 user가 아직 로드 안 됨 → 로딩 (LoginScreen으로 빠지지 않음)
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <span className="text-sm">로딩 중...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (screen === "login") {
+  if (screen === "login" || !user) {
     return <LoginScreen />
   }
 
