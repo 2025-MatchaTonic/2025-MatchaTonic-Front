@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAppStore, type Screen } from "@/lib/store"
 import { getAuthToken } from "@/lib/auth"
 import { TopNav } from "@/components/top-nav"
@@ -17,49 +17,48 @@ function screenFromHash(): Screen | null {
   return VALID_SCREENS.includes(h as Screen) ? (h as Screen) : null
 }
 
+function readPersistedState() {
+  try {
+    const raw = localStorage.getItem("promate-storage")
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const s = parsed?.state?.screen
+    return {
+      screen: (s && VALID_SCREENS.includes(s) ? s : null) as Screen | null,
+      user: parsed?.state?.user ?? null,
+      currentProjectId: parsed?.state?.currentProjectId ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 export default function Page() {
   const { screen, user, setScreen, setUser } = useAppStore()
   const [mounted, setMounted] = useState(false)
   const skipPushRef = useRef(false)
 
-  // 클라이언트 마운트 감지 + 화면 복원
+  // 클라이언트 마운트 + 상태 복원
   useEffect(() => {
-    setMounted(true)
-
     const fromHash = screenFromHash()
-    let persistedScreen: Screen | null = null
-    let persistedUser: typeof user = null
-    let persistedProjectId: string | null = null
-    try {
-      const raw = localStorage.getItem("promate-storage")
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        const s = parsed?.state?.screen
-        if (s && VALID_SCREENS.includes(s)) persistedScreen = s as Screen
-        if (parsed?.state?.user) persistedUser = parsed.state.user
-        if (parsed?.state?.currentProjectId) persistedProjectId = parsed.state.currentProjectId
-      }
-    } catch { /* ignore */ }
-
-    const { user: u } = useAppStore.getState()
-    const resolvedUser = u || persistedUser
+    const persisted = readPersistedState()
     const hasToken = !!getAuthToken()
-
-    // Zustand rehydration 전이라도 localStorage에서 user 복원
-    if (!u && persistedUser && hasToken) {
-      setUser(persistedUser)
-    }
+    const storeState = useAppStore.getState()
+    const resolvedUser = storeState.user || persisted?.user
 
     if (resolvedUser && hasToken) {
+      if (!storeState.user && persisted?.user) {
+        setUser(persisted.user)
+      }
+
       const target = fromHash && fromHash !== "login"
         ? fromHash
-        : persistedScreen && persistedScreen !== "login"
-          ? persistedScreen
+        : persisted?.screen && persisted.screen !== "login"
+          ? persisted.screen
           : "main"
 
-      // chat 화면이면 currentProjectId도 복원
-      if (target === "chat" && persistedProjectId) {
-        useAppStore.getState().setCurrentProjectId(persistedProjectId)
+      if (target === "chat" && persisted?.currentProjectId) {
+        useAppStore.getState().setCurrentProjectId(persisted.currentProjectId)
       }
 
       skipPushRef.current = true
@@ -69,6 +68,9 @@ export default function Page() {
       setUser(null)
       setScreen("login")
     }
+
+    // store 업데이트가 커밋된 후에 mounted 전환
+    requestAnimationFrame(() => setMounted(true))
   }, [setScreen, setUser])
 
   // screen 변경 시 hash 동기화
@@ -92,10 +94,10 @@ export default function Page() {
         skipPushRef.current = true
         setScreen(s)
       } else {
-        const fromHash = screenFromHash()
-        if (fromHash) {
+        const h = screenFromHash()
+        if (h) {
           skipPushRef.current = true
-          setScreen(fromHash)
+          setScreen(h)
         }
       }
     }
@@ -103,7 +105,6 @@ export default function Page() {
     return () => window.removeEventListener("popstate", handlePopState)
   }, [setScreen])
 
-  // SSR/hydration 전이면 빈 화면
   if (!mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -115,12 +116,28 @@ export default function Page() {
     )
   }
 
-  if (screen === "login" || !user) {
+  // 토큰이 없으면 로그인 화면
+  if (!getAuthToken()) {
     return <LoginScreen />
   }
 
-  const fullHeightScreens = ["chat"]
-  const isFullHeight = fullHeightScreens.includes(screen)
+  // 토큰은 있는데 user가 아직 로드 안 됨 → 로딩 (LoginScreen으로 빠지지 않음)
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">로딩 중...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (screen === "login") {
+    return <LoginScreen />
+  }
+
+  const isFullHeight = screen === "chat"
 
   return (
     <div className={`flex flex-col ${isFullHeight ? "h-screen" : "min-h-screen"}`}>
