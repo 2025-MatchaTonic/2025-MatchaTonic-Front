@@ -18,20 +18,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-const DISCOVERY_QUESTIONS = [
-  "프로젝트가 해결하려는 문제는 무엇인가요?",
-  "대상 사용자는 누구인가요?",
-  "예상 기간은 몇 주인가요?",
-  "팀 인원은 몇 명이고, 각자의 역할은 무엇인가요?",
-]
-
-const DEFINITION_PROMPTS = [
-  "좋아요! 프로젝트를 명확히 정의해 봅시다. 한 문장으로 핵심 문제를 설명해 주세요.",
-  "이 솔루션으로 구체적으로 누가 혜택을 받나요?",
-  "이 문제가 대상 사용자에게 왜 중요한가요?",
-  "주요 산출물은 무엇인가요?",
-  "목표 마감일은 언제인가요?",
-]
 
 function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate: (field: string, value: string) => void }) {
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -264,7 +250,6 @@ export function ChatScreen() {
 
   const [input, setInput] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
-  const [aiStep, setAiStep] = useState(0)
   const [showSummary, setShowSummary] = useState(false)
   const [showTeamModal, setShowTeamModal] = useState(false)
   const [showHistory, setShowHistory] = useState(true)
@@ -272,12 +257,10 @@ export function ChatScreen() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasInitialized = useRef(false)
-  const hasShownCompleteMessage = useRef(false)
-  const [inputKey, setInputKey] = useState(0) // 입력창 강제 리렌더용
+  const [inputKey, setInputKey] = useState(0)
   const [showTemplateOptions, setShowTemplateOptions] = useState(false)
   const [selectedTemplateTypes, setSelectedTemplateTypes] = useState<string[]>([])
   const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false)
-  const [waitingForTopic, setWaitingForTopic] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
@@ -379,7 +362,7 @@ export function ChatScreen() {
     ? project.messages.reduce((last, m, i) => m.sender === "ai" ? i : last, -1)
     : -1
   const lastAiMsg = lastAiIndex >= 0 ? project?.messages[lastAiIndex] : null
-  const isAnswerMode = !waitingForTopic && lastAiMsg && lastAiMsg.sender === "ai" && 
+  const isAnswerMode = lastAiMsg && lastAiMsg.sender === "ai" && 
     (!lastAiMsg.hasButtons || lastAiMsg.buttonClicked) &&
     !lastAiMsg.text.includes("템플릿 생성") && !lastAiMsg.text.includes("핵심 내용을 모두 수집")
   
@@ -523,15 +506,9 @@ export function ChatScreen() {
       lastUpdated: new Date(),
     })
     
-    if (button.id === "yes" || button.id === "no") {
-      setWaitingForTopic(true)
-    }
   }
 
-  const phase = project?.topic ? "definition" : "discovery"
-  const questions = phase === "discovery" ? DISCOVERY_QUESTIONS : DEFINITION_PROMPTS
-
-  // 첫 AI 질문으로 채팅 초기화 (백엔드 연동 시 fetch 완료 후에만)
+  // 첫 진입 시 인사 메시지 (메시지가 없을 때만)
   useEffect(() => {
     const shouldInit =
       project &&
@@ -541,11 +518,9 @@ export function ChatScreen() {
 
     if (shouldInit) {
       hasInitialized.current = true
-      
       setIsAiTyping(true)
-      
+
       setTimeout(() => {
-        // setTimeout 시점에 최신 상태 재확인 (API가 그 사이에 메시지를 가져왔을 수 있음)
         const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
         if (latest && latest.messages.length > 0) {
           setIsAiTyping(false)
@@ -558,40 +533,12 @@ export function ChatScreen() {
           text: "안녕하세요 저는 mates입니다.\n도움이 필요하시면 @mates를 태그해주세요.",
           timestamp: new Date(),
         }
-        
+
         const existingMessages = latest?.messages ?? []
         updateProject(project.id, {
           messages: [...existingMessages, greetingMsg],
           lastUpdated: new Date(),
         })
-        
-        setTimeout(() => {
-          setIsAiTyping(true)
-          
-          setTimeout(() => {
-            const latest2 = useAppStore.getState().projects.find((p) => p.id === project.id)
-            if (!latest2) { setIsAiTyping(false); return }
-
-            const questionMsg: Message = {
-              id: crypto.randomUUID(),
-              sender: "ai",
-              text: "프로젝트를 시작하기에 앞서 아래 질문에 답해주세요\n지금 준비하고 있는 프로젝트 주제가 있나요?",
-              timestamp: new Date(),
-              hasButtons: true,
-              buttons: [
-                { id: "yes", text: "예", value: "예, 프로젝트 주제가 있습니다" },
-                { id: "no", text: "아니오", value: "아니오, 아직 주제가 없습니다" }
-              ]
-            }
-            
-            updateProject(project.id, {
-              messages: [...latest2.messages, questionMsg],
-              lastUpdated: new Date(),
-            })
-            setIsAiTyping(false)
-          }, 2000)
-        }, 800)
-        
         setIsAiTyping(false)
       }, 1500)
     }
@@ -631,109 +578,11 @@ export function ChatScreen() {
       }
     }
 
-    // 주제 입력 대기 중인 경우 - @mates 호출 시에만 AI 응답
-    if (waitingForTopic) {
-      if (!userText.includes("@mates")) {
-        // @mates 없으면 사용자 메시지만 추가
-        updateProject(project.id, {
-          messages: [...baseMessages, userMsg],
-          lastUpdated: new Date(),
-        })
-        return
-      }
-      const topicText = userText.replace(/@mates/g, "").trim()
-      updateProject(project.id, {
-        messages: [...baseMessages, userMsg],
-        topic: topicText,
-        lastUpdated: new Date(),
-      })
-      setWaitingForTopic(false)
-      setIsAiTyping(true)
-      setTimeout(() => {
-        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
-        if (latest) {
-          const aiMsg: Message = {
-            id: crypto.randomUUID(),
-            sender: "ai",
-            text: "감사합니다! 이제 프로젝트 기획을 시작해보겠습니다.\n추가로 도움이 필요하시면 @mates를 태그해주세요.",
-            timestamp: new Date(),
-          }
-          updateProject(project.id, {
-            messages: [...latest.messages, aiMsg],
-            lastUpdated: new Date(),
-          })
-        }
-        setIsAiTyping(false)
-      }, 1500)
-      return
-    }
-
-    // @mates 태그가 포함된 경우에만 AI 응답
-    if (userText.includes("@mates")) {
-      const nextStep = aiStep + 1
-
-      // 응답을 요약에 파싱 (@mates 태그 제거 후)
-      const cleanedText = userText.replace(/@mates/g, "").trim()
-      const summary = { ...project.sessionSummary }
-      
-      if (phase === "discovery") {
-        if (aiStep === 0) summary.goal = cleanedText
-        if (aiStep === 1) summary.roles = cleanedText
-        if (aiStep === 2) summary.dueDate = `${cleanedText}주`
-        if (aiStep === 3) summary.teamSize = cleanedText
-      } else {
-        if (aiStep === 0) summary.title = cleanedText
-        if (aiStep === 1) summary.goal = cleanedText
-        if (aiStep === 2) summary.roles = cleanedText
-        if (aiStep === 3) summary.deliverables = cleanedText
-        if (aiStep === 4) summary.dueDate = cleanedText
-      }
-
-      // 사용자 메시지 + 요약 업데이트
-      updateProject(project.id, {
-        messages: [...baseMessages, userMsg],
-        sessionSummary: summary,
-        lastUpdated: new Date(),
-      })
-
-      setIsAiTyping(true)
-
-      // AI 응답을 지연 후 추가
-      setTimeout(() => {
-        const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
-        if (!latest) return
-
-        const aiText =
-          nextStep < questions.length
-            ? questions[nextStep]
-            : "핵심 내용을 모두 수집했습니다. 정리한 내용을 확인해 주세요."
-
-        const aiMsg: Message = {
-          id: crypto.randomUUID(),
-          sender: "ai",
-          text: aiText,
-          timestamp: new Date(),
-        }
-
-        updateProject(project.id, {
-          messages: [...latest.messages, aiMsg],
-          lastUpdated: new Date(),
-        })
-
-        setAiStep(nextStep)
-        setIsAiTyping(false)
-
-        if (nextStep >= questions.length) {
-          setShowConfirm(true)
-        }
-      }, 1200)
-    } else {
-      // @mates 태그가 없는 경우 사용자 메시지만 추가
-      updateProject(project.id, {
-        messages: [...baseMessages, userMsg],
-        lastUpdated: new Date(),
-      })
-    }
+    // 사용자 메시지 추가 (AI 응답은 백엔드 WebSocket으로 수신)
+    updateProject(project.id, {
+      messages: [...baseMessages, userMsg],
+      lastUpdated: new Date(),
+    })
   }
 
   const handleSummaryUpdate = (field: string, value: string) => {
@@ -792,7 +641,6 @@ export function ChatScreen() {
   ]
 
   const missingFields = summaryFields.filter((f) => !f.value)
-  const isSessionComplete = missingFields.length === 0
 
 
   const handleTemplateTypeChange = (type: string, checked: boolean) => {
@@ -865,55 +713,6 @@ export function ChatScreen() {
       setTimeout(addCompleteMessage, 3000)
     }
   }
-
-  // 세션 완료 시 완료 메시지 전송
-  // 프로젝트 변경 시 ref 리셋
-  useEffect(() => {
-    hasShownCompleteMessage.current = false
-  }, [project.id])
-
-  useEffect(() => {
-    if (isSessionComplete && project.messages.length > 0 && !hasShownCompleteMessage.current) {
-      const hasCompleteMessage = project.messages.some(msg => 
-        msg.sender === "ai" && (
-          msg.text.includes("템플릿을 생성할 수 있는 충분한 데이터를 수집했습니다") ||
-          msg.text.includes("핵심 내용을 모두 수집했습니다")
-        )
-      )
-      
-      if (!hasCompleteMessage) {
-        hasShownCompleteMessage.current = true
-        
-        setTimeout(() => {
-          setIsAiTyping(true)
-          
-          setTimeout(() => {
-            const completeMsg: Message = {
-              id: crypto.randomUUID(),
-              sender: "ai",
-              text: "템플릿을 생성할 수 있는 충분한 데이터를 수집했습니다.\n템플릿을 내보내시겠습니까?",
-              timestamp: new Date(),
-              hasButtons: true,
-              buttons: [
-                { id: "export-template", text: "템플릿 내보내기", value: "템플릿을 내보내겠습니다" },
-                { id: "skip-export", text: "나중에", value: "나중에 내보내겠습니다" }
-              ]
-            }
-
-            const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
-            if (latest) {
-              updateProject(project.id, {
-                messages: [...latest.messages, completeMsg],
-                lastUpdated: new Date(),
-              })
-            }
-            
-            setIsAiTyping(false)
-          }, 1500)
-        }, 1000)
-      }
-    }
-  }, [isSessionComplete, project.id, project.messages.length])
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -1076,21 +875,13 @@ export function ChatScreen() {
                 선택한 답변 제출하기 ({selectedMessages.length}개)
               </Button>
             )}
-            {input.includes("@mates") && !waitingForTopic && (
+            {input.includes("@mates") && (
               <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12l2 2 4-4"/>
                   <circle cx="12" cy="12" r="9"/>
                 </svg>
                 <span style={{fontWeight: 500}}>mates가 호출되었습니다</span>
-              </div>
-            )}
-            {waitingForTopic && (
-              <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-                <span style={{fontWeight: 500}}>프로젝트 주제를 입력하고 @mates를 태그해주세요</span>
               </div>
             )}
             <Button
@@ -1108,7 +899,7 @@ export function ChatScreen() {
               <Input
                 key={inputKey}
                 ref={inputRef}
-                placeholder={waitingForTopic ? "프로젝트 주제를 입력하고 @mates를 태그해주세요..." : "@mates를 태그해서 AI에게 질문하세요..."}
+                placeholder="@mates를 태그해서 AI에게 질문하세요..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1124,14 +915,14 @@ export function ChatScreen() {
                     }
                   }
                 }}
-                className={`flex-1 ${input.includes("@mates") || waitingForTopic ? "border-primary/50 focus:border-primary" : ""}`}
+                className={`flex-1 ${input.includes("@mates") ? "border-primary/50 focus:border-primary" : ""}`}
               />
               <Button 
                 onClick={handleSend} 
                 disabled={!input.trim()} 
                 size="sm" 
                 className={`h-9 px-4 font-medium transition-all ${
-                  input.includes("@mates") || waitingForTopic
+                  input.includes("@mates")
                     ? "bg-primary hover:bg-primary/90 shadow-lg" 
                     : ""
                 }`}
