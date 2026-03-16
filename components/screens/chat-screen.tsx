@@ -270,7 +270,7 @@ export function ChatScreen() {
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false)
 
-  const { connected: stompConnected } = useChatStomp(
+  const { connected: stompConnected, send: stompSend } = useChatStomp(
     project?.backendProjectId,
     project?.id ?? ""
   )
@@ -570,6 +570,11 @@ export function ChatScreen() {
       sender: "user",
       text: userText,
       timestamp: new Date(),
+    }
+
+    // 백엔드 WebSocket으로 메시지 전송 (/pub/chat/message)
+    if (project.backendProjectId && stompConnected && stompSend) {
+      stompSend(userText)
     }
 
     // 주제 입력 대기 중인 경우 - @mates 호출 시에만 AI 응답
