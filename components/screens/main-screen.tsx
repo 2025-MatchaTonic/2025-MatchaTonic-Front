@@ -454,7 +454,7 @@ export function MainScreen() {
 
       {/* 프로젝트 카드 */}
       {projects.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-6xl mx-auto">
           {projects.map((p) => (
             <ProjectCard key={p.id} project={p} />
           ))}
