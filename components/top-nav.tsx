@@ -82,7 +82,7 @@ export function TopNav() {
                 setUser(null)
                 setScreen("login")
                 const base = getApiBaseUrl()
-                const useBackendLogout = process.env.NEXT_PUBLIC_USE_BACKEND_LOGOUT !== "false"
+                const useBackendLogout = process.env.NEXT_PUBLIC_USE_BACKEND_LOGOUT === "true"
                 if (base && useBackendLogout && typeof window !== "undefined") {
                   const redirectUri = encodeURIComponent(window.location.origin + "/")
                   window.location.href = `${base.replace(/\/$/, "")}/logout?post_logout_redirect_uri=${redirectUri}`

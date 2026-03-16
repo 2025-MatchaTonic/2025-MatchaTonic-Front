@@ -82,6 +82,11 @@ const allowedOrigins = [
 | GET | `/api/users/me` | 로그인 유저 정보 조회 |
 | GET | `/logout` | 로그아웃 (세션 정리 후 `post_logout_redirect_uri`로 리다이렉트 권장) |
 
+### OAuth2 로그인 후 리다이렉트 (필수)
+OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
+- **프로덕션**: `https://promate.ai.kr/oauth2/redirect?token={JWT토큰}`
+- **로컬**: `http://localhost:3000/oauth2/redirect?token={JWT토큰}` (또는 `access_token` 파라미터명)
+
 ### 프로젝트
 | Method | Path | 설명 |
 |--------|------|------|

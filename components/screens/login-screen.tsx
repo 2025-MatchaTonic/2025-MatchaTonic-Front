@@ -15,7 +15,7 @@ export function LoginScreen() {
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
-    const token = params.get("token")
+    const token = params.get("token") || params.get("access_token") || params.get("accessToken")
     if (token && !getAuthToken()) {
       setAuthToken(token)
       window.history.replaceState({}, "", window.location.pathname)
@@ -133,6 +133,18 @@ export function LoginScreen() {
 
             <p className="text-xs text-muted-foreground text-center leading-relaxed">
               계속 진행하면 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
+            </p>
+            <p className="text-xs text-muted-foreground/80 text-center">
+              로그인이 안 되면{" "}
+              <a
+                href="https://api.promate.ai.kr/oauth2/authorization/google"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                새 창에서 열기
+              </a>
+              {" "}또는 시크릿 창에서 시도해 보세요.
             </p>
           </div>
         </div>

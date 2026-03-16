@@ -17,14 +17,17 @@ function OAuth2RedirectContent() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = searchParams.get("token")
-    if (token) {
-      setAuthToken(token)
-      fetchUserAndRedirect(token)
-    } else {
-      useAppStore.getState().setScreen("login")
-      router.replace("/")
+    let token =
+      searchParams.get("token") ||
+      searchParams.get("access_token") ||
+      searchParams.get("accessToken")
+    if (!token && typeof window !== "undefined" && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+      token = hashParams.get("token") || hashParams.get("access_token") || hashParams.get("accessToken")
+      if (token) window.history.replaceState({}, "", window.location.pathname + window.location.search)
     }
+    if (token) setAuthToken(token)
+    fetchUserAndRedirect(token || "")
   }, [searchParams, router])
 
   async function fetchUserAndRedirect(token: string) {
@@ -48,6 +51,7 @@ function OAuth2RedirectContent() {
       const dataCookie = await resCookie.json().catch(() => ({}))
       if (resCookie.ok && (dataCookie?.name || dataCookie?.email)) {
         setUserFromData(dataCookie)
+        if (token) setAuthToken(token)
         useAppStore.getState().setScreen("main")
         router.replace("/")
         return
@@ -56,32 +60,34 @@ function OAuth2RedirectContent() {
       /* 다음 시도 */
     }
 
-    // 2) Bearer 토큰 시도
-    const authAttempts: { headers: Record<string, string> }[] = [
-      { headers: { Authorization: `Bearer ${token}` } },
-      { headers: { "X-Auth-Token": token } },
-    ]
-    for (const { headers } of authAttempts) {
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers: { "Content-Type": "application/json", ...headers },
-          credentials: "include",
-        })
-        const data = await res.json().catch(() => ({}))
-        if (res.ok && (data?.name || data?.email)) {
-          setUserFromData(data)
-          useAppStore.getState().setScreen("main")
-          router.replace("/")
-          return
+    // 2) Bearer 토큰 시도 (토큰이 있을 때만)
+    if (token) {
+      const authAttempts: { headers: Record<string, string> }[] = [
+        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { "X-Auth-Token": token } },
+      ]
+      for (const { headers } of authAttempts) {
+        try {
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { "Content-Type": "application/json", ...headers },
+            credentials: "include",
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.ok && (data?.name || data?.email)) {
+            setUserFromData(data)
+            useAppStore.getState().setScreen("main")
+            router.replace("/")
+            return
+          }
+        } catch {
+          /* 다음 시도 */
         }
-      } catch {
-        /* 다음 시도 */
       }
     }
 
-    useAppStore.getState().setUser(MOCK_USER)
-    useAppStore.getState().setScreen("main")
+    // 3) 모두 실패 시 로그인 화면으로
+    useAppStore.getState().setScreen("login")
     router.replace("/")
   }
 
