@@ -49,7 +49,11 @@ export async function fetchChatMessages(
   }
 
   const data = await res.json()
-  return Array.isArray(data) ? data : []
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray((data as { content?: unknown[] }).content)) return (data as { content: unknown[] }).content as ChatMessageResponse[]
+  if (data && Array.isArray((data as { data?: unknown[] }).data)) return (data as { data: unknown[] }).data as ChatMessageResponse[]
+  if (data && Array.isArray((data as { messages?: unknown[] }).messages)) return (data as { messages: unknown[] }).messages as ChatMessageResponse[]
+  return []
 }
 
 /** REST API로 채팅 메시지 전송 (WebSocket 미동작 시 폴백) */

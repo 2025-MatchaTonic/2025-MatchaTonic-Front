@@ -314,6 +314,7 @@ export function ChatScreen() {
   }, [showTeamModal, project?.backendProjectId, project?.id, project?.inviteCode, updateProject])
 
   // 백엔드 API: 과거 채팅 내역 조회
+  // API가 빈 배열을 반환해도 기존(persist) 메시지를 덮어쓰지 않음
   useEffect(() => {
     if (!project?.backendProjectId) return
 
@@ -324,12 +325,23 @@ export function ChatScreen() {
       .then((apiMessages) => {
         if (cancelled) return
         const mapped = apiMessages.map((m, i) => mapChatMessageToAppFormat(m, i))
+
         if (mapped.length > 0) {
+          // API에 데이터가 있으면 병합 (기존 메시지 유지, content 기준 중복 제거)
+          const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+          const existing = latest?.messages ?? project.messages
+          const key = (m: Message) => `${m.timestamp.getTime()}-${m.senderEmail ?? ""}-${m.text}`
+          const existingKeys = new Set(existing.map(key))
+          const fromApi = mapped.filter((m) => !existingKeys.has(key(m)))
+          const merged = [...existing, ...fromApi].sort(
+            (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+          )
           updateProject(project.id, {
-            messages: mapped,
+            messages: merged,
             lastUpdated: new Date(),
           })
         }
+        // mapped.length === 0이면 기존 메시지 그대로 유지 (덮어쓰지 않음)
       })
       .catch((err) => {
         if (!cancelled) console.warn("채팅 내역 조회 실패:", err)
