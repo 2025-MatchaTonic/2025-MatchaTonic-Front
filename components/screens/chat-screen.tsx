@@ -486,12 +486,10 @@ export function ChatScreen() {
       return
     }
     
-    // 버튼이 클릭된 메시지를 찾아서 buttonClicked를 true로 설정
     const updatedMessages = project.messages.map(msg => 
       msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg
     )
     
-    // 사용자 응답 메시지 추가 (AI 응답 없음 - @mates 호출 시에만 응답)
     const userMsg: Message = {
       id: crypto.randomUUID(),
       sender: "user",
@@ -505,10 +503,22 @@ export function ChatScreen() {
       messages: [...updatedMessages, userMsg],
       lastUpdated: new Date(),
     })
-    
+
+    // 예/아니오 버튼 → 답변을 백엔드 AI에 전송하여 본격 대화 시작
+    if (button.id === "yes" || button.id === "no") {
+      const messageToSend = `@mates ${button.value}`
+      if (project.backendProjectId) {
+        if (stompConnected && stompSend) {
+          stompSend(messageToSend)
+        } else {
+          sendChatMessageViaApi(project.backendProjectId, messageToSend, user?.email, user?.name)
+            .catch((err) => console.warn("[REST 폴백] 전송 실패:", err))
+        }
+      }
+    }
   }
 
-  // 첫 진입 시 인사 메시지 (메시지가 없을 때만)
+  // 첫 진입 시 인사 메시지 + 주제 질문 (메시지가 없을 때만)
   useEffect(() => {
     const shouldInit =
       project &&
@@ -539,6 +549,34 @@ export function ChatScreen() {
           messages: [...existingMessages, greetingMsg],
           lastUpdated: new Date(),
         })
+
+        setTimeout(() => {
+          setIsAiTyping(true)
+
+          setTimeout(() => {
+            const latest2 = useAppStore.getState().projects.find((p) => p.id === project.id)
+            if (!latest2) { setIsAiTyping(false); return }
+
+            const questionMsg: Message = {
+              id: crypto.randomUUID(),
+              sender: "ai",
+              text: "프로젝트를 시작하기에 앞서 아래 질문에 답해주세요\n지금 준비하고 있는 프로젝트 주제가 있나요?",
+              timestamp: new Date(),
+              hasButtons: true,
+              buttons: [
+                { id: "yes", text: "예", value: "예, 프로젝트 주제가 있습니다" },
+                { id: "no", text: "아니오", value: "아니오, 아직 주제가 없습니다" },
+              ],
+            }
+
+            updateProject(project.id, {
+              messages: [...latest2.messages, questionMsg],
+              lastUpdated: new Date(),
+            })
+            setIsAiTyping(false)
+          }, 1500)
+        }, 800)
+
         setIsAiTyping(false)
       }, 1500)
     }
