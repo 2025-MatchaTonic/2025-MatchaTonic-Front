@@ -109,9 +109,9 @@ interface AppState {
       chatRoomId: number;
     }[]
   ) => void;
-  /** 노션 내보내기 시 사용할 선택된 답변 목록 */
-  exportedSelectedAnswers: string[];
-  setExportedSelectedAnswers: (answers: string[]) => void;
+  /** 노션 내보내기 시 전달할 세션 요약 (SummaryUpdateRequest와 동일 필드) */
+  exportedSummary: SessionSummary | null;
+  setExportedSummary: (summary: SessionSummary | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -199,9 +199,8 @@ export const useAppStore = create<AppState>()(
           }
           return { projects: updated };
         }),
-      exportedSelectedAnswers: [],
-      setExportedSelectedAnswers: (answers) =>
-        set({ exportedSelectedAnswers: answers }),
+      exportedSummary: null,
+      setExportedSummary: (summary) => set({ exportedSummary: summary }),
     }),
     {
       name: "promate-storage",

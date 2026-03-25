@@ -6,6 +6,7 @@ import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } f
 import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
+import { sessionSummaryToUpdateRequest } from "@/lib/api/summary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -245,7 +246,7 @@ function ChatMessage({ message, onButtonClick, isSelectable, isSelected, onToggl
 }
 
 export function ChatScreen() {
-  const { getCurrentProject, updateProject, setScreen, setCurrentProjectId, setExportedSelectedAnswers, user } = useAppStore()
+  const { getCurrentProject, updateProject, setScreen, setCurrentProjectId, setExportedSummary, user } = useAppStore()
   const project = getCurrentProject()
 
   const [input, setInput] = useState("")
@@ -396,16 +397,7 @@ export function ChatScreen() {
     
     // 노션 링크 버튼 처리 - 노션 내보내기로 이동
     if (button.id === "notion-link") {
-      const summary = project.sessionSummary
-      const answers = [
-        summary.title,
-        summary.goal,
-        summary.teamSize,
-        summary.roles,
-        summary.dueDate,
-        summary.deliverables,
-      ].filter(Boolean)
-      setExportedSelectedAnswers(answers)
+      setExportedSummary(project.sessionSummary)
       setCurrentProjectId(project.id)
       setScreen("export-notion")
       return
@@ -752,19 +744,10 @@ export function ChatScreen() {
     }
 
     if (project.backendProjectId && process.env.NEXT_PUBLIC_API_BASE_URL) {
-      const summary = project.sessionSummary
-      const selectedAnswers = [
-        summary.title,
-        summary.goal,
-        summary.teamSize,
-        summary.roles,
-        summary.dueDate,
-        summary.deliverables,
-      ].filter(Boolean)
       try {
         await generateProjectTemplates({
           projectId: project.backendProjectId,
-          selectedAnswers,
+          summary: sessionSummaryToUpdateRequest(project.sessionSummary),
         })
         addCompleteMessage()
       } catch {

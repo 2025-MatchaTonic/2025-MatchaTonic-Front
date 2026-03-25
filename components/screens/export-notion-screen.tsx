@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { exportProjectToNotion } from "@/lib/api/projects"
+import { sessionSummaryToUpdateRequest, hasSummaryContent } from "@/lib/api/summary"
 
 export function ExportNotionScreen() {
-  const { setScreen, getCurrentProject, exportedSelectedAnswers } = useAppStore()
+  const { setScreen, getCurrentProject, exportedSummary } = useAppStore()
   const project = getCurrentProject()
   const [notionLink, setNotionLink] = useState("")
   const [linkError, setLinkError] = useState("")
@@ -24,12 +25,19 @@ export function ExportNotionScreen() {
   const handleExport = async () => {
     setExportError("")
 
-    if (project?.backendProjectId && exportedSelectedAnswers.length > 0) {
+    const summarySource =
+      exportedSummary && hasSummaryContent(exportedSummary)
+        ? exportedSummary
+        : project && hasSummaryContent(project.sessionSummary)
+          ? project.sessionSummary
+          : null
+
+    if (project?.backendProjectId && summarySource) {
       setExporting(true)
       try {
         const url = await exportProjectToNotion({
           projectId: project.backendProjectId,
-          selectedAnswers: exportedSelectedAnswers,
+          summary: sessionSummaryToUpdateRequest(summarySource),
         })
         setExportResultUrl(url || null)
         setExportDone(true)
@@ -134,7 +142,10 @@ export function ExportNotionScreen() {
     )
   }
 
-  const useApiExport = !!(project?.backendProjectId && exportedSelectedAnswers.length > 0)
+  const useApiExport = !!(
+    project?.backendProjectId &&
+    (hasSummaryContent(exportedSummary) || hasSummaryContent(project?.sessionSummary))
+  )
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8 md:py-16">
@@ -177,7 +188,7 @@ export function ExportNotionScreen() {
           <Button
             onClick={handleExport}
             disabled={
-              project?.backendProjectId && exportedSelectedAnswers.length > 0
+              useApiExport
                 ? exporting
                 : !notionLink.trim()
             }

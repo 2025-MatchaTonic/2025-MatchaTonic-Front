@@ -8,6 +8,7 @@
  */
 
 import { apiRequest } from "./request"
+import type { SummaryUpdateRequest } from "./summary"
 
 export interface MyProjectResponse {
   id: number
@@ -207,7 +208,8 @@ export async function joinProject(
 
 export interface ExportProjectRequest {
   projectId: number
-  selectedAnswers: string[]
+  /** 백엔드 SummaryUpdateRequest와 동일한 필드 */
+  summary: SummaryUpdateRequest
 }
 
 export async function exportProjectToNotion(
@@ -217,7 +219,7 @@ export async function exportProjectToNotion(
     method: "POST",
     body: {
       projectId: data.projectId,
-      selectedAnswers: data.selectedAnswers,
+      summary: data.summary,
     },
   })
 

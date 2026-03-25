@@ -149,11 +149,38 @@ OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
 - **용도**: WebSocket이 동작하지 않을 때 REST로 메시지 저장 (동일하게 DB 저장 필요)
 
 ### POST /api/projects/{projectId}/export (노션 내보내기)
-- **Request**: `{ projectId: number, selectedAnswers: string[] }`
+- **Request** (JSON): `SummaryUpdateRequest`를 `summary` 필드로 전달합니다. (기존 `selectedAnswers: string[]` 또는 단일 `sessionSummary` 필드 사용 안 함)
+```json
+{
+  "projectId": 1,
+  "summary": {
+    "title": "",
+    "goal": "",
+    "teamSize": "",
+    "roles": "",
+    "dueDate": "",
+    "deliverables": ""
+  }
+}
+```
+- 백엔드 DTO 예: `SummaryUpdateRequest` (필드명 `title`, `goal`, `teamSize`, `roles`, `dueDate`, `deliverables`)
 - **Response**: `string` (Notion URL 등)
 
 ### POST /ai/project/templates (AI 템플릿)
-- **Request**: `{ projectId: number, selectedAnswers: string[] }`
+- **Request** (JSON): 동일하게 `summary`에 객체 형태로 전송합니다.
+```json
+{
+  "projectId": 1,
+  "summary": {
+    "title": "",
+    "goal": "",
+    "teamSize": "",
+    "roles": "",
+    "dueDate": "",
+    "deliverables": ""
+  }
+}
+```
 - **Response**: `string`
 
 ---
