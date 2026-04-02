@@ -57,7 +57,7 @@ function ProjectCard({ project }: { project: Project }) {
 
   return (
     <>
-      <div className="group flex flex-col gap-4 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1">
+      <div className="group relative flex flex-col gap-4 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <h3 className="text-lg text-card-foreground" style={{fontWeight: 600}}>{project.name}</h3>
@@ -65,31 +65,31 @@ function ProjectCard({ project }: { project: Project }) {
               <p className="text-sm text-muted-foreground line-clamp-1" style={{fontWeight: 400}}>{project.topic}</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <Badge variant="secondary" className="shrink-0 text-xs" style={{fontWeight: 500}}>
               {project.role}
             </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
-                if (!ok) return
-                setShowTeam(false)
-                removeProject(project.id)
-                if (currentProjectId === project.id) {
-                  setCurrentProjectId(null)
-                  setScreen("main")
-                }
-              }}
-              // opacity만 주면 버튼이 레이아웃 공간을 차지하므로 hidden으로 제거합니다.
-              className="hidden group-hover:inline-flex text-red-600"
-              style={{ fontWeight: 500 }}
-            >
-              삭제
-            </Button>
           </div>
         </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
+            if (!ok) return
+            setShowTeam(false)
+            removeProject(project.id)
+            if (currentProjectId === project.id) {
+              setCurrentProjectId(null)
+              setScreen("main")
+            }
+          }}
+          className="absolute right-6 top-6 hidden group-hover:inline-flex text-red-600"
+          style={{ fontWeight: 500 }}
+        >
+          삭제
+        </Button>
 
         <div className="flex items-center gap-2">
           <div className="flex -space-x-1.5">
@@ -421,7 +421,7 @@ export function MainScreen() {
   }
 
   return (
-    <main className="relative mx-auto max-w-7xl px-4 py-8 md:py-12">
+    <main className="relative mx-auto max-w-[96rem] px-3 py-8 md:py-12">
       {/* 배경 장식 요소 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
