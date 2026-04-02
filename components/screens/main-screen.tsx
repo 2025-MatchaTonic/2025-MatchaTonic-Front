@@ -234,7 +234,9 @@ export function MainScreen() {
 
       const res = await createProject({
         name: newName.trim(),
-        subject: newName.trim(),
+        // 프로젝트 제목(name)은 사용자가 입력한 값으로 유지하되,
+        // subject(topic)은 채팅 흐름에서 AI가 확정하도록 비워둔다.
+        subject: "",
       })
       const project: Project = {
         id: crypto.randomUUID(),
