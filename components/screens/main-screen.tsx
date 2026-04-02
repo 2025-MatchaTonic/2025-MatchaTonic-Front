@@ -86,7 +86,7 @@ function ProjectCard({ project }: { project: Project }) {
             }
           }}
           // 제목 레이아웃을 건드리지 않으면서, 제목 높이(가로 한 줄) 근처에 오도록 Y 위치 조정
-          className="absolute right-16 top-6 z-10 hidden group-hover:inline-flex text-red-600"
+          className="absolute right-24 top-7 z-10 hidden group-hover:inline-flex text-red-600"
           style={{ fontWeight: 500 }}
         >
           삭제
