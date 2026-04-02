@@ -23,7 +23,7 @@ function generateCode(): string {
 }
 
 function ProjectCard({ project }: { project: Project }) {
-  const { setCurrentProjectId, setScreen, updateProject } = useAppStore()
+  const { setCurrentProjectId, setScreen, updateProject, removeProject, currentProjectId } = useAppStore()
   const [showTeam, setShowTeam] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
 
@@ -65,9 +65,29 @@ function ProjectCard({ project }: { project: Project }) {
               <p className="text-sm text-muted-foreground line-clamp-1" style={{fontWeight: 400}}>{project.topic}</p>
             )}
           </div>
-          <Badge variant="secondary" className="shrink-0 text-xs" style={{fontWeight: 500}}>
-            {project.role}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="shrink-0 text-xs" style={{fontWeight: 500}}>
+              {project.role}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
+                if (!ok) return
+                setShowTeam(false)
+                removeProject(project.id)
+                if (currentProjectId === project.id) {
+                  setCurrentProjectId(null)
+                  setScreen("main")
+                }
+              }}
+              className="text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ fontWeight: 500 }}
+            >
+              삭제
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

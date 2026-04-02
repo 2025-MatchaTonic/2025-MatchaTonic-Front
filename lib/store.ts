@@ -95,6 +95,8 @@ interface AppState {
   ) => void;
   projects: Project[];
   addProject: (project: Project) => void;
+  /** 프론트엔드에서 프로젝트를 목록에서 제거 (DB 삭제 API가 별도일 수 있음) */
+  removeProject: (id: string) => void;
   currentProjectId: string | null;
   setCurrentProjectId: (id: string | null) => void;
   getCurrentProject: () => Project | undefined;
@@ -124,6 +126,11 @@ export const useAppStore = create<AppState>()(
       projects: [],
       addProject: (project) =>
         set((state) => ({ projects: [...state.projects, project] })),
+      removeProject: (id) =>
+        set((state) => ({
+          projects: state.projects.filter((p) => p.id !== id),
+          currentProjectId: state.currentProjectId === id ? null : state.currentProjectId,
+        })),
       currentProjectId: null,
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
       getCurrentProject: () => {
