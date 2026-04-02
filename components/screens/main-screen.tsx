@@ -85,7 +85,8 @@ function ProjectCard({ project }: { project: Project }) {
               setScreen("main")
             }
           }}
-          className="absolute right-6 top-6 hidden group-hover:inline-flex text-red-600"
+          // 제목 레이아웃을 건드리지 않으면서, 제목 높이(가로 한 줄) 근처에 오도록 Y 위치 조정
+          className="absolute right-6 top-10 hidden group-hover:inline-flex text-red-600"
           style={{ fontWeight: 500 }}
         >
           삭제
@@ -421,7 +422,7 @@ export function MainScreen() {
   }
 
   return (
-    <main className="relative mx-auto max-w-[96rem] px-3 py-8 md:py-12">
+    <main className="relative mx-auto max-w-none w-full px-2 py-8 md:px-4 md:py-12">
       {/* 배경 장식 요소 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
@@ -477,7 +478,7 @@ export function MainScreen() {
 
       {/* 프로젝트 카드 */}
       {projects.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 w-full">
           {projects.map((p) => (
             <ProjectCard key={p.id} project={p} />
           ))}
