@@ -82,7 +82,8 @@ function ProjectCard({ project }: { project: Project }) {
                   setScreen("main")
                 }
               }}
-              className="text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              // opacity만 주면 버튼이 레이아웃 공간을 차지하므로 hidden으로 제거합니다.
+              className="hidden group-hover:inline-flex text-red-600"
               style={{ fontWeight: 500 }}
             >
               삭제
@@ -420,7 +421,7 @@ export function MainScreen() {
   }
 
   return (
-    <main className="relative mx-auto max-w-4xl px-4 py-8 md:py-12">
+    <main className="relative mx-auto max-w-7xl px-4 py-8 md:py-12">
       {/* 배경 장식 요소 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
@@ -476,7 +477,7 @@ export function MainScreen() {
 
       {/* 프로젝트 카드 */}
       {projects.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-6xl mx-auto">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full">
           {projects.map((p) => (
             <ProjectCard key={p.id} project={p} />
           ))}
