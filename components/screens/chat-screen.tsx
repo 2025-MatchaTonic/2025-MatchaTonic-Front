@@ -7,6 +7,7 @@ import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
 import { sessionSummaryToUpdateRequest } from "@/lib/api/summary"
+import { isProjectLeaderRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -287,7 +288,7 @@ export function ChatScreen() {
         const mapped = apiMembers.map((m, i) => {
           const baseRole = m.role || "Member"
           const role =
-            project.role === "Leader" && m.email === currentUser?.email
+            isProjectLeaderRole(project.role) && m.email === currentUser?.email
               ? "Leader"
               : baseRole
           return {

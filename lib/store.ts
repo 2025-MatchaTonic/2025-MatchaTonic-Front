@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { normalizeProjectRole } from "./project-role";
 
 function reviveDates(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
@@ -155,16 +156,6 @@ export const useAppStore = create<AppState>()(
         }[]
       ) =>
         set((state) => {
-          const roleMap = (r: string): import("./store").Role =>
-            [
-              "Leader",
-              "Member",
-              "Designer",
-              "Developer",
-              "Researcher",
-            ].includes(r)
-              ? (r as import("./store").Role)
-              : "Member";
           const emptySummary = {
             title: "",
             goal: "",
@@ -180,7 +171,7 @@ export const useAppStore = create<AppState>()(
             const base = {
               name: api.name,
               topic: api.subject,
-              role: roleMap(api.role),
+              role: normalizeProjectRole(api.role) as Role,
               backendProjectId: api.id,
             };
             if (idx >= 0) {

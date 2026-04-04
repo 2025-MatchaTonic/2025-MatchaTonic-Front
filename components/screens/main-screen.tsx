@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAppStore, type Project, type Role } from "@/lib/store"
 import { createProject, joinProject, fetchMyProjects, fetchProjectMembers } from "@/lib/api/projects"
+import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
 import { getApiBaseUrl } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +39,7 @@ function ProjectCard({ project }: { project: Project }) {
           const mapped = apiMembers.map((m, i) => {
             const baseRole = m.role || "Member"
             const role =
-              project.role === "Leader" && m.email === user?.email
+              isProjectLeaderRole(project.role) && m.email === user?.email
                 ? "Leader"
                 : baseRole
             return {
@@ -72,7 +73,7 @@ function ProjectCard({ project }: { project: Project }) {
           </div>
         </div>
 
-        {project.role === "Leader" && (
+        {isProjectLeaderRole(project.role) && (
           <Button
             variant="ghost"
             size="sm"
@@ -86,8 +87,8 @@ function ProjectCard({ project }: { project: Project }) {
                 setScreen("main")
               }
             }}
-            // 제목 레이아웃을 건드리지 않으면서, 제목 높이(가로 한 줄) 근처에 오도록 Y 위치 조정
-            className="absolute right-24 top-7 z-10 hidden group-hover:inline-flex text-red-600"
+            // 리더만 노출. 터치·호버 모두에서 보이도록 항상 표시(멤버 카드에는 버튼 자체 없음)
+            className="absolute right-24 top-7 z-10 inline-flex text-red-600"
             style={{ fontWeight: 500 }}
           >
             삭제
@@ -220,10 +221,11 @@ export function MainScreen() {
                 const proj = useAppStore.getState().projects.find((pr) => pr.backendProjectId === p.id)
                 if (proj) {
                   const myMember = apiMembers.find((m) => m.email === user?.email)
-                  const myRole =
-                    (myMember?.role as Role | undefined) ||
-                    (p.role as Role | undefined) ||
-                    "Member"
+                  // GET /api/projects/me 의 p.role 이 "내 역할"의 정본. members API가 전원 Member로만 오는 경우가 있어 p.role 을 우선한다.
+                  const listRole = (p.role ?? "").trim()
+                  const myRole = normalizeProjectRole(
+                    listRole ? listRole : (myMember?.role ?? "Member")
+                  ) as Role
                   updateProject(proj.id, { members: mapped, role: myRole })
                 }
               })
