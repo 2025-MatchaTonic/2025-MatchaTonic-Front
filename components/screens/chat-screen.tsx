@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
 import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } from "@/lib/api/chat"
+import { getApiBaseUrl } from "@/lib/api/client"
 import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
@@ -860,11 +861,21 @@ export function ChatScreen() {
       setIsGeneratingTemplate(false)
     }
 
-    if (project.backendProjectId && process.env.NEXT_PUBLIC_API_BASE_URL) {
+    const latestForTemplates = useAppStore
+      .getState()
+      .projects.find((p) => p.id === project.id)
+    const summaryPayload = latestForTemplates
+      ? sessionSummaryToUpdateRequest(latestForTemplates.sessionSummary)
+      : sessionSummaryToUpdateRequest(project.sessionSummary)
+
+    const canCallTemplatesApi =
+      !!latestForTemplates?.backendProjectId && !!getApiBaseUrl()
+
+    if (canCallTemplatesApi) {
       try {
         await generateProjectTemplates({
-          projectId: project.backendProjectId,
-          summary: sessionSummaryToUpdateRequest(project.sessionSummary),
+          projectId: latestForTemplates!.backendProjectId!,
+          summary: summaryPayload,
         })
         addCompleteMessage()
       } catch {
