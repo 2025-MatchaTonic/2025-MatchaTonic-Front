@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Loader2, Trash2 } from "lucide-react"
 
 function generateCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -138,9 +139,14 @@ function ProjectCard({ project }: { project: Project }) {
                     setDeleteLoading(false)
                   }
                 }}
-                className="h-8 px-2 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-red-600"
+                className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:bg-transparent hover:text-red-600"
+                aria-label={deleteLoading ? "삭제 중" : "프로젝트 삭제"}
               >
-                {deleteLoading ? "삭제 중…" : "삭제"}
+                {deleteLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                )}
               </Button>
             )}
             <Button
