@@ -5,6 +5,34 @@ import { persist } from "zustand/middleware";
 import { normalizeProjectRole } from "./project-role";
 import { parseProjectCreatedAtFromApi } from "./api/projects";
 
+/** localStorage 복원 시 sessionSummary 필드는 항상 문자열로 둔다(ISO 문자열이 Date로 바뀌면 .trim() 등이 깨짐). */
+function reviveSessionSummary(raw: unknown): SessionSummary {
+  const empty: SessionSummary = {
+    title: "",
+    goal: "",
+    teamSize: "",
+    roles: "",
+    dueDate: "",
+    deliverables: "",
+  };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return empty;
+  const o = raw as Record<string, unknown>;
+  const toStr = (key: keyof SessionSummary): string => {
+    const v = o[key as string];
+    if (v == null) return "";
+    if (v instanceof Date) return v.toISOString();
+    return String(v);
+  };
+  return {
+    title: toStr("title"),
+    goal: toStr("goal"),
+    teamSize: toStr("teamSize"),
+    roles: toStr("roles"),
+    dueDate: toStr("dueDate"),
+    deliverables: toStr("deliverables"),
+  };
+}
+
 function reviveDates(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === "string" && /^\d{4}-\d{2}-\d{2}T/.test(obj))
@@ -13,6 +41,10 @@ function reviveDates(obj: unknown): unknown {
   if (typeof obj === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
+      if (k === "sessionSummary") {
+        out[k] = reviveSessionSummary(v);
+        continue;
+      }
       out[k] =
         k === "timestamp" || k === "lastUpdated" || k === "createdAt"
           ? typeof v === "string"
@@ -120,6 +152,8 @@ interface AppState {
   /** 노션 내보내기 시 전달할 세션 요약 (SummaryUpdateRequest와 동일 필드) */
   exportedSummary: SessionSummary | null;
   setExportedSummary: (summary: SessionSummary | null) => void;
+  /** localStorage persist 복원이 끝난 뒤 true (복원 전 sync로 요약이 비는 것 방지) */
+  _rehydratedFromStorage: boolean;
 }
 
 export const useAppStore = create<AppState>()(
@@ -173,12 +207,20 @@ export const useAppStore = create<AppState>()(
           const updated = [...existing];
           for (const api of apiProjects) {
             const serverCreated = parseProjectCreatedAtFromApi(api as object);
-            const idx = updated.findIndex((p) => p.backendProjectId === api.id);
+            const apiNumericId = Number(api.id);
+            const idx = updated.findIndex(
+              (p) =>
+                p.backendProjectId != null &&
+                !Number.isNaN(apiNumericId) &&
+                Number(p.backendProjectId) === apiNumericId
+            );
             const base = {
               name: api.name,
               topic: api.subject,
               role: normalizeProjectRole(api.role) as Role,
-              backendProjectId: api.id,
+              backendProjectId: Number.isNaN(apiNumericId)
+                ? (api.id as number)
+                : apiNumericId,
             };
             if (idx >= 0) {
               const prev = updated[idx];
@@ -217,6 +259,7 @@ export const useAppStore = create<AppState>()(
         }),
       exportedSummary: null,
       setExportedSummary: (summary) => set({ exportedSummary: summary }),
+      _rehydratedFromStorage: false,
     }),
     {
       name: "promate-storage",
@@ -226,19 +269,28 @@ export const useAppStore = create<AppState>()(
         projects: state.projects,
         currentProjectId: state.currentProjectId,
       }),
+      onRehydrateStorage: () => (_state, _error) => {
+        useAppStore.setState({ _rehydratedFromStorage: true });
+      },
       storage: {
         getItem: (name) => {
           const str = localStorage.getItem(name);
           if (!str) return null;
           try {
-            const parsed = JSON.parse(str);
-            if (parsed?.state) parsed.state = reviveDates(parsed.state);
-            return JSON.stringify(parsed);
+            const parsed = JSON.parse(str) as {
+              state?: unknown;
+              version?: number;
+            };
+            if (parsed?.state != null)
+              parsed.state = reviveDates(parsed.state);
+            return parsed as { state: unknown; version?: number };
           } catch {
-            return str;
+            return null;
           }
         },
-        setItem: (name, value) => localStorage.setItem(name, value),
+        setItem: (name, value) => {
+          localStorage.setItem(name, JSON.stringify(value));
+        },
         removeItem: (name) => localStorage.removeItem(name),
       },
     }

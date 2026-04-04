@@ -13,18 +13,26 @@ export const SESSION_SUMMARY_KEYS: (keyof SessionSummary)[] = [
   "deliverables",
 ]
 
+function summaryFieldString(v: unknown): string {
+  if (v == null) return ""
+  if (typeof v === "string") return v
+  if (v instanceof Date) return v.toISOString()
+  return String(v)
+}
+
 export function isSessionSummaryComplete(
   s: SessionSummary | null | undefined
 ): boolean {
   if (!s) return false
   return SESSION_SUMMARY_KEYS.every(
-    (k) => typeof s[k] === "string" && (s[k] as string).trim().length > 0
+    (k) => summaryFieldString(s[k]).trim().length > 0
   )
 }
 
 export function sessionSummaryEqual(a: SessionSummary, b: SessionSummary): boolean {
   return SESSION_SUMMARY_KEYS.every(
-    (k) => (a[k] || "").trim() === (b[k] || "").trim()
+    (k) =>
+      summaryFieldString(a[k]).trim() === summaryFieldString(b[k]).trim()
   )
 }
 
@@ -37,7 +45,7 @@ export function mergeSessionSummaryFromExtract(
   for (const k of SESSION_SUMMARY_KEYS) {
     const ex = extracted[k]
     if (
-      !(current[k] || "").trim() &&
+      !summaryFieldString(current[k]).trim() &&
       typeof ex === "string" &&
       ex.trim().length > 0
     ) {
@@ -70,7 +78,12 @@ export function sessionSummaryToUpdateRequest(s: SessionSummary): SummaryUpdateR
 
 export function hasSummaryContent(s: SessionSummary | null | undefined): boolean {
   if (!s) return false
-  return [s.title, s.goal, s.teamSize, s.roles, s.dueDate, s.deliverables].some(
-    (v) => typeof v === "string" && v.trim().length > 0
-  )
+  return [
+    s.title,
+    s.goal,
+    s.teamSize,
+    s.roles,
+    s.dueDate,
+    s.deliverables,
+  ].some((v) => summaryFieldString(v).trim().length > 0)
 }

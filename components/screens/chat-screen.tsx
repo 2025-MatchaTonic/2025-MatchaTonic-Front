@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
 import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } from "@/lib/api/chat"
 import { getApiBaseUrl } from "@/lib/api/client"
@@ -34,6 +34,7 @@ import {
 function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate: (field: string, value: string) => void }) {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
+  const skipBlurCommitRef = useRef(false)
 
   const fields = [
     { label: "제목", key: "title", value: summary.title },
@@ -60,9 +61,22 @@ function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate
   }
 
   const handleCancel = () => {
+    skipBlurCommitRef.current = true
     setEditingField(null)
     setEditValue("")
+    queueMicrotask(() => {
+      skipBlurCommitRef.current = false
+    })
   }
+
+  const commitBlur = useCallback(() => {
+    if (skipBlurCommitRef.current) return
+    const field = editingField
+    if (!field) return
+    onUpdate(field, editValue)
+    setEditingField(null)
+    setEditValue("")
+  }, [editingField, editValue, onUpdate])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -92,11 +106,14 @@ function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onBlur={commitBlur}
                   className="flex-1 h-8 text-sm"
                   autoFocus
                 />
                 <Button
                   size="sm"
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSave}
                   className="h-8 px-2"
                   style={{fontWeight: 500}}
@@ -108,6 +125,8 @@ function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate
                 <Button
                   size="sm"
                   variant="outline"
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleCancel}
                   className="h-8 px-2"
                 >

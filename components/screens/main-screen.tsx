@@ -234,11 +234,20 @@ function formatProjectCreatedLabel(project: Project): string {
 }
 
 export function MainScreen() {
-  const { projects, addProject, setScreen, setCurrentProjectId, user, syncProjectsFromApi, updateProject } = useAppStore()
+  const {
+    projects,
+    addProject,
+    setScreen,
+    setCurrentProjectId,
+    user,
+    syncProjectsFromApi,
+    updateProject,
+    _rehydratedFromStorage,
+  } = useAppStore()
 
   useEffect(() => {
-    if (!getApiBaseUrl()) return
-    // persist rehydration 후에 sync 실행 (새로고침 시 대화 내역 유지)
+    if (!getApiBaseUrl() || !_rehydratedFromStorage) return
+    // persist rehydration 후에 sync 실행 (새로고침 시 대화 내역·세션 요약 유지)
     const t = setTimeout(() => {
       fetchMyProjects()
         .then((apiProjects) => {
@@ -269,7 +278,7 @@ export function MainScreen() {
         .catch(() => {})
     }, 150)
     return () => clearTimeout(t)
-  }, [syncProjectsFromApi, updateProject, user?.email])
+  }, [_rehydratedFromStorage, syncProjectsFromApi, updateProject, user?.email])
   const [showNew, setShowNew] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [newName, setNewName] = useState("")
