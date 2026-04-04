@@ -72,25 +72,27 @@ function ProjectCard({ project }: { project: Project }) {
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
-            if (!ok) return
-            setShowTeam(false)
-            removeProject(project.id)
-            if (currentProjectId === project.id) {
-              setCurrentProjectId(null)
-              setScreen("main")
-            }
-          }}
-          // 제목 레이아웃을 건드리지 않으면서, 제목 높이(가로 한 줄) 근처에 오도록 Y 위치 조정
-          className="absolute right-24 top-7 z-10 hidden group-hover:inline-flex text-red-600"
-          style={{ fontWeight: 500 }}
-        >
-          삭제
-        </Button>
+        {project.role === "Leader" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
+              if (!ok) return
+              setShowTeam(false)
+              removeProject(project.id)
+              if (currentProjectId === project.id) {
+                setCurrentProjectId(null)
+                setScreen("main")
+              }
+            }}
+            // 제목 레이아웃을 건드리지 않으면서, 제목 높이(가로 한 줄) 근처에 오도록 Y 위치 조정
+            className="absolute right-24 top-7 z-10 hidden group-hover:inline-flex text-red-600"
+            style={{ fontWeight: 500 }}
+          >
+            삭제
+          </Button>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="flex -space-x-1.5">
