@@ -8,6 +8,7 @@ import {
   deleteProject,
   fetchMyProjects,
   fetchProjectMembers,
+  parseProjectCreatedAtFromApi,
 } from "@/lib/api/projects"
 import { getApiBaseUrl } from "@/lib/api/client"
 import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
@@ -297,13 +298,13 @@ export function MainScreen() {
         // subject(topic)은 채팅 흐름에서 AI가 확정하도록 비워둔다.
         subject: "",
       })
-      const createdAt = new Date()
+      const createdAt = parseProjectCreatedAtFromApi(res as object) ?? new Date()
       const project: Project = {
         id: crypto.randomUUID(),
         name: res.name,
         topic: "",
         role: "Leader",
-        lastUpdated: createdAt,
+        lastUpdated: new Date(),
         createdAt,
         inviteCode: res.inviteCode,
         members: [
@@ -377,13 +378,13 @@ export function MainScreen() {
       let proj = projects.find((p) => p.inviteCode.toLowerCase() === code.toLowerCase())
 
       if (!proj) {
-        const createdAt = new Date()
+        const createdAt = parseProjectCreatedAtFromApi(res as object) ?? new Date()
         proj = {
           id: crypto.randomUUID(),
           name: (res as { name?: string }).name || "프로젝트",
           topic: "",
           role: "Member" as Role,
-          lastUpdated: createdAt,
+          lastUpdated: new Date(),
           createdAt,
           inviteCode: (res as { inviteCode?: string }).inviteCode || code,
           members: [

@@ -18,6 +18,42 @@ export interface MyProjectResponse {
   status: string
   chatRoomId: number
   inviteCode?: string
+  /** 백엔드에 따라 createdAt, created_at, createDate 등으로 올 수 있음 */
+  createdAt?: string
+}
+
+/**
+ * GET /api/projects/me 등 프로젝트 객체에서 생성 시각 필드를 찾아 파싱합니다.
+ */
+export function parseProjectCreatedAtFromApi(row: object): Date | undefined {
+  if (!row || typeof row !== "object") return undefined
+  const r = row as Record<string, unknown>
+  const keys = [
+    "createdAt",
+    "created_at",
+    "createDate",
+    "createdDate",
+    "creationTime",
+    "createdTime",
+    "regDate",
+    "registerDate",
+    "gmtCreate",
+    "gmt_create",
+  ]
+  for (const k of keys) {
+    const v = r[k]
+    if (v == null) continue
+    if (typeof v === "number") {
+      const ms = v < 1e12 ? v * 1000 : v
+      const d = new Date(ms)
+      if (!Number.isNaN(d.getTime())) return d
+    }
+    if (typeof v === "string" && v.trim()) {
+      const d = new Date(v.trim())
+      if (!Number.isNaN(d.getTime())) return d
+    }
+  }
+  return undefined
 }
 
 export async function fetchMyProjects(): Promise<MyProjectResponse[]> {
@@ -120,6 +156,7 @@ export interface CreateProjectResponse {
   inviteCode: string
   status: string
   chatRoomId: number
+  createdAt?: string
 }
 
 export async function createProject(

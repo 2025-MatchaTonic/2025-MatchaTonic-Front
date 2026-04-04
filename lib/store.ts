@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { normalizeProjectRole } from "./project-role";
+import { parseProjectCreatedAtFromApi } from "./api/projects";
 
 function reviveDates(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
@@ -171,6 +172,7 @@ export const useAppStore = create<AppState>()(
           const existing = state.projects;
           const updated = [...existing];
           for (const api of apiProjects) {
+            const serverCreated = parseProjectCreatedAtFromApi(api as object);
             const idx = updated.findIndex((p) => p.backendProjectId === api.id);
             const base = {
               name: api.name,
@@ -180,24 +182,28 @@ export const useAppStore = create<AppState>()(
             };
             if (idx >= 0) {
               const prev = updated[idx];
+              const prevLast =
+                prev.lastUpdated instanceof Date &&
+                !Number.isNaN(prev.lastUpdated.getTime())
+                  ? prev.lastUpdated
+                  : undefined;
               const merged = {
                 ...prev,
                 ...base,
                 lastUpdated: new Date(),
                 createdAt:
+                  serverCreated ??
                   prev.createdAt ??
-                  (prev.lastUpdated instanceof Date
-                    ? prev.lastUpdated
-                    : new Date()),
+                  prevLast,
               };
               if (api.inviteCode) merged.inviteCode = api.inviteCode;
               updated[idx] = merged;
             } else {
-              const createdAt = new Date();
+              const createdAt = serverCreated ?? new Date();
               updated.push({
                 id: crypto.randomUUID(),
                 ...base,
-                lastUpdated: createdAt,
+                lastUpdated: new Date(),
                 createdAt,
                 inviteCode: api.inviteCode ?? "",
                 members: [],
