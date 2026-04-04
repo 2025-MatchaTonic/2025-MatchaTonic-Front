@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useAppStore, type Project, type Role } from "@/lib/store"
-import { createProject, joinProject, fetchMyProjects, fetchProjectMembers } from "@/lib/api/projects"
-import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
+import {
+  createProject,
+  joinProject,
+  deleteProject,
+  fetchMyProjects,
+  fetchProjectMembers,
+} from "@/lib/api/projects"
 import { getApiBaseUrl } from "@/lib/api/client"
+import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +33,7 @@ function ProjectCard({ project }: { project: Project }) {
   const { setCurrentProjectId, setScreen, updateProject, removeProject, currentProjectId } = useAppStore()
   const [showTeam, setShowTeam] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const relativeTime = getRelativeTime(project.lastUpdated)
 
@@ -73,28 +80,6 @@ function ProjectCard({ project }: { project: Project }) {
           </div>
         </div>
 
-        {isProjectLeaderRole(project.role) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const ok = window.confirm("이 프로젝트를 목록에서 삭제할까요?")
-              if (!ok) return
-              setShowTeam(false)
-              removeProject(project.id)
-              if (currentProjectId === project.id) {
-                setCurrentProjectId(null)
-                setScreen("main")
-              }
-            }}
-            // 리더만 노출. 터치·호버 모두에서 보이도록 항상 표시(멤버 카드에는 버튼 자체 없음)
-            className="absolute right-24 top-7 z-10 inline-flex text-red-600"
-            style={{ fontWeight: 500 }}
-          >
-            삭제
-          </Button>
-        )}
-
         <div className="flex items-center gap-2">
           <div className="flex -space-x-1.5">
             {project.members.slice(0, 4).map((m) => (
@@ -119,18 +104,56 @@ function ProjectCard({ project }: { project: Project }) {
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-t border-border pt-3">
-          <span className="text-xs text-muted-foreground">{relativeTime}</span>
-          <Button
-            size="sm"
-            onClick={() => {
-              setCurrentProjectId(project.id)
-              setScreen("chat")
-            }}
-            className="h-8 text-xs font-medium"
-          >
-            채팅 열기
-          </Button>
+        <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+          <span className="text-xs text-muted-foreground shrink-0">{relativeTime}</span>
+          <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+            {isProjectLeaderRole(project.role) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={deleteLoading}
+                onClick={async () => {
+                  const useApi = !!getApiBaseUrl() && project.backendProjectId != null
+                  const confirmMsg = useApi
+                    ? "이 프로젝트를 삭제할까요? 서버에서도 제거됩니다."
+                    : "로컬에서만 제거합니다. API·서버에 없으면 새로고침 시 목록이 다시 나타날 수 있습니다. 계속할까요?"
+                  const ok = window.confirm(confirmMsg)
+                  if (!ok) return
+                  setShowTeam(false)
+                  try {
+                    if (useApi) {
+                      setDeleteLoading(true)
+                      await deleteProject(project.backendProjectId!)
+                    }
+                    removeProject(project.id)
+                    if (currentProjectId === project.id) {
+                      setCurrentProjectId(null)
+                      setScreen("main")
+                    }
+                  } catch (e) {
+                    const msg =
+                      e instanceof Error ? e.message : "프로젝트 삭제에 실패했습니다."
+                    window.alert(msg)
+                  } finally {
+                    setDeleteLoading(false)
+                  }
+                }}
+                className="h-8 px-2 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-red-600"
+              >
+                {deleteLoading ? "삭제 중…" : "삭제"}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => {
+                setCurrentProjectId(project.id)
+                setScreen("chat")
+              }}
+              className="h-8 text-xs font-medium"
+            >
+              채팅 열기
+            </Button>
+          </div>
         </div>
       </div>
 

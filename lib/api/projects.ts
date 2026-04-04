@@ -206,6 +206,15 @@ export async function joinProject(
   throw new Error("참여는 완료되었습니다. 페이지를 새로고침해 주세요.")
 }
 
+/** 리더 전용. 서버에서 삭제되지 않으면 새로고침 시 목록에 다시 나타납니다. */
+export async function deleteProject(projectId: number): Promise<void> {
+  const res = await apiRequest(`/api/projects/${projectId}`, { method: "DELETE" })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`프로젝트 삭제 실패: ${res.status}${text ? ` ${text}` : ""}`)
+  }
+}
+
 export interface ExportProjectRequest {
   projectId: number
   /** 백엔드 SummaryUpdateRequest와 동일한 필드 */
