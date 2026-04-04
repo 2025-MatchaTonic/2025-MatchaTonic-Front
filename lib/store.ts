@@ -13,7 +13,7 @@ function reviveDates(obj: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
       out[k] =
-        k === "timestamp" || k === "lastUpdated"
+        k === "timestamp" || k === "lastUpdated" || k === "createdAt"
           ? typeof v === "string"
             ? new Date(v)
             : reviveDates(v)
@@ -78,6 +78,8 @@ export interface Project {
   topic: string;
   role: Role;
   lastUpdated: Date;
+  /** 프로젝트 생성 시각 (메인 카드 등에 표시). 없으면 lastUpdated로 대체 */
+  createdAt?: Date;
   inviteCode: string;
   members: TeamMember[];
   messages: Message[];
@@ -177,18 +179,26 @@ export const useAppStore = create<AppState>()(
               backendProjectId: api.id,
             };
             if (idx >= 0) {
+              const prev = updated[idx];
               const merged = {
-                ...updated[idx],
+                ...prev,
                 ...base,
                 lastUpdated: new Date(),
+                createdAt:
+                  prev.createdAt ??
+                  (prev.lastUpdated instanceof Date
+                    ? prev.lastUpdated
+                    : new Date()),
               };
               if (api.inviteCode) merged.inviteCode = api.inviteCode;
               updated[idx] = merged;
             } else {
+              const createdAt = new Date();
               updated.push({
                 id: crypto.randomUUID(),
                 ...base,
-                lastUpdated: new Date(),
+                lastUpdated: createdAt,
+                createdAt,
                 inviteCode: api.inviteCode ?? "",
                 members: [],
                 messages: [],

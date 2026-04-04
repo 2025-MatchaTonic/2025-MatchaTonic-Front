@@ -36,7 +36,7 @@ function ProjectCard({ project }: { project: Project }) {
   const [membersLoading, setMembersLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const relativeTime = getRelativeTime(project.lastUpdated)
+  const createdLabel = formatProjectCreatedLabel(project)
 
   useEffect(() => {
     if (showTeam && project.backendProjectId) {
@@ -106,7 +106,7 @@ function ProjectCard({ project }: { project: Project }) {
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-          <span className="text-xs text-muted-foreground shrink-0">{relativeTime}</span>
+          <span className="text-xs text-muted-foreground shrink-0">{createdLabel}</span>
           <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
             {isProjectLeaderRole(project.role) && (
               <Button
@@ -216,16 +216,20 @@ function ProjectCard({ project }: { project: Project }) {
   )
 }
 
-function getRelativeTime(date: Date): string {
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return "방금 전"
-  if (mins < 60) return `${mins}분 전`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}시간 전`
-  const days = Math.floor(hrs / 24)
-  return `${days}일 전`
+function formatProjectCreatedLabel(project: Project): string {
+  const raw = project.createdAt ?? project.lastUpdated
+  const d =
+    raw instanceof Date
+      ? raw
+      : typeof raw === "string"
+        ? new Date(raw)
+        : null
+  if (!d || Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
 }
 
 export function MainScreen() {
@@ -293,12 +297,14 @@ export function MainScreen() {
         // subject(topic)은 채팅 흐름에서 AI가 확정하도록 비워둔다.
         subject: "",
       })
+      const createdAt = new Date()
       const project: Project = {
         id: crypto.randomUUID(),
         name: res.name,
         topic: "",
         role: "Leader",
-        lastUpdated: new Date(),
+        lastUpdated: createdAt,
+        createdAt,
         inviteCode: res.inviteCode,
         members: [
           {
@@ -327,12 +333,14 @@ export function MainScreen() {
     } catch (err) {
       if (err instanceof Error && err.message === "NO_API") {
         const code = generateCode()
+        const createdAt = new Date()
         const project: Project = {
           id: crypto.randomUUID(),
           name: newName.trim(),
           topic: "",
           role: "Leader",
-          lastUpdated: new Date(),
+          lastUpdated: createdAt,
+          createdAt,
           inviteCode: code,
           members: [
             { id: "1", name: user?.name || "나", role: "Leader" as Role, avatar: user?.avatar || "나" },
@@ -369,12 +377,14 @@ export function MainScreen() {
       let proj = projects.find((p) => p.inviteCode.toLowerCase() === code.toLowerCase())
 
       if (!proj) {
+        const createdAt = new Date()
         proj = {
           id: crypto.randomUUID(),
           name: (res as { name?: string }).name || "프로젝트",
           topic: "",
           role: "Member" as Role,
-          lastUpdated: new Date(),
+          lastUpdated: createdAt,
+          createdAt,
           inviteCode: (res as { inviteCode?: string }).inviteCode || code,
           members: [
             { id: crypto.randomUUID(), name: user?.name || "나", role: "Member" as Role, avatar: user?.avatar || "나" },
