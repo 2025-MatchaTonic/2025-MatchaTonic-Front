@@ -318,6 +318,7 @@ export function MainScreen() {
           deliverables: "",
         },
         templateType: [],
+        templateExportOfferShown: false,
         backendProjectId: res.projectId,
       }
       addProject(project)
@@ -339,6 +340,7 @@ export function MainScreen() {
           messages: [],
           sessionSummary: { title: "", goal: "", teamSize: "", roles: "", dueDate: "", deliverables: "" },
           templateType: [],
+          templateExportOfferShown: false,
         }
         addProject(project)
         setCreatedCode(code)
@@ -380,6 +382,7 @@ export function MainScreen() {
           messages: [],
           sessionSummary: { title: "", goal: "", teamSize: "", roles: "", dueDate: "", deliverables: "" },
           templateType: [],
+          templateExportOfferShown: false,
           backendProjectId: res.projectId,
         }
         useAppStore.getState().addProject(proj)

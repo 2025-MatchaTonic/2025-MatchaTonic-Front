@@ -6,7 +6,16 @@ import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } f
 import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
-import { sessionSummaryToUpdateRequest } from "@/lib/api/summary"
+import {
+  sessionSummaryToUpdateRequest,
+  mergeSessionSummaryFromExtract,
+  isSessionSummaryComplete,
+  sessionSummaryEqual,
+} from "@/lib/api/summary"
+import {
+  extractSessionSummaryFromMessages,
+  SUMMARY_COMPLETE_PROMPT_MARKER,
+} from "@/lib/session-summary-from-chat"
 import { isProjectLeaderRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -273,6 +282,96 @@ export function ChatScreen() {
     project?.id ?? ""
   )
 
+  // 채팅 텍스트 → 세션 요약 자동 반영, 전 항목 완료 시 템플릿 안내 AI 메시지
+  useEffect(() => {
+    if (!project) return
+
+    const alreadyHasPrompt = project.messages.some(
+      (m) =>
+        m.sender === "ai" &&
+        m.text.includes(SUMMARY_COMPLETE_PROMPT_MARKER) &&
+        m.hasButtons
+    )
+
+    if (!project.templateExportOfferShown && alreadyHasPrompt) {
+      updateProject(project.id, { templateExportOfferShown: true })
+      return
+    }
+
+    const extracted = extractSessionSummaryFromMessages(
+      project.messages,
+      project.sessionSummary
+    )
+    const merged = mergeSessionSummaryFromExtract(
+      project.sessionSummary,
+      extracted
+    )
+    const summaryChanged = !sessionSummaryEqual(merged, project.sessionSummary)
+    const complete = isSessionSummaryComplete(merged)
+    const needPrompt =
+      complete && !project.templateExportOfferShown && !alreadyHasPrompt
+
+    if (summaryChanged && needPrompt) {
+      const promptMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: `${SUMMARY_COMPLETE_PROMPT_MARKER} 프로젝트 템플릿을 AI로 생성·보내시겠어요?`,
+        timestamp: new Date(),
+        hasButtons: true,
+        buttons: [
+          {
+            id: "export-template",
+            text: "템플릿보내기",
+            value: "템플릿보내기",
+          },
+        ],
+      }
+      updateProject(project.id, {
+        sessionSummary: merged,
+        messages: [...project.messages, promptMsg],
+        templateExportOfferShown: true,
+        lastUpdated: new Date(),
+      })
+      return
+    }
+
+    if (summaryChanged) {
+      updateProject(project.id, {
+        sessionSummary: merged,
+        lastUpdated: new Date(),
+      })
+      return
+    }
+
+    if (needPrompt) {
+      const promptMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: `${SUMMARY_COMPLETE_PROMPT_MARKER} 프로젝트 템플릿을 AI로 생성·보내시겠어요?`,
+        timestamp: new Date(),
+        hasButtons: true,
+        buttons: [
+          {
+            id: "export-template",
+            text: "템플릿보내기",
+            value: "템플릿보내기",
+          },
+        ],
+      }
+      updateProject(project.id, {
+        messages: [...project.messages, promptMsg],
+        templateExportOfferShown: true,
+        lastUpdated: new Date(),
+      })
+    }
+  }, [
+    project?.id,
+    project?.messages,
+    project?.sessionSummary,
+    project?.templateExportOfferShown,
+    updateProject,
+  ])
+
   // 백엔드 API: 팀원 목록 조회 (화면 로드 시 1회 + 모달 열릴 때)
   const membersFetchedRef = useRef<string | null>(null)
   useEffect(() => {
@@ -406,6 +505,23 @@ export function ChatScreen() {
 
     // 템플릿 내보내기 버튼 처리
     if (button.id === "export-template") {
+      if (project.backendProjectId) {
+        const notice =
+          "[템플릿보내기] 세션 요약을 반영해 템플릿 생성을 진행합니다."
+        if (stompConnected && stompSend) {
+          stompSend(notice)
+        } else {
+          void sendChatMessageViaApi(
+            project.backendProjectId,
+            notice,
+            user?.email,
+            user?.name
+          ).catch((err) =>
+            console.warn("[템플릿] 백엔드 채팅 알림 전송 실패:", err)
+          )
+        }
+      }
+
       // 버튼 클릭된 상태로 업데이트
       const updatedMessages = project.messages.map(msg => 
         msg.hasButtons && !msg.buttonClicked ? { ...msg, buttonClicked: true } : msg

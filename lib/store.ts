@@ -85,6 +85,8 @@ export interface Project {
   templateType: string[];
   /** 백엔드 API와 연동 시 사용하는 프로젝트 ID (정수) */
   backendProjectId?: number;
+  /** 세션 요약 완료 후 템플릿 안내 AI 메시지를 이미 붙였는지 */
+  templateExportOfferShown?: boolean;
 }
 
 interface AppState {

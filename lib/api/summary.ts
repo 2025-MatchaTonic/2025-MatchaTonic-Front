@@ -4,6 +4,49 @@
  */
 import type { SessionSummary } from "@/lib/store"
 
+export const SESSION_SUMMARY_KEYS: (keyof SessionSummary)[] = [
+  "title",
+  "goal",
+  "teamSize",
+  "roles",
+  "dueDate",
+  "deliverables",
+]
+
+export function isSessionSummaryComplete(
+  s: SessionSummary | null | undefined
+): boolean {
+  if (!s) return false
+  return SESSION_SUMMARY_KEYS.every(
+    (k) => typeof s[k] === "string" && (s[k] as string).trim().length > 0
+  )
+}
+
+export function sessionSummaryEqual(a: SessionSummary, b: SessionSummary): boolean {
+  return SESSION_SUMMARY_KEYS.every(
+    (k) => (a[k] || "").trim() === (b[k] || "").trim()
+  )
+}
+
+/** 비어 있는 필드만 extracted 값으로 채움 (수동 입력 유지) */
+export function mergeSessionSummaryFromExtract(
+  current: SessionSummary,
+  extracted: Partial<SessionSummary>
+): SessionSummary {
+  const next = { ...current }
+  for (const k of SESSION_SUMMARY_KEYS) {
+    const ex = extracted[k]
+    if (
+      !(current[k] || "").trim() &&
+      typeof ex === "string" &&
+      ex.trim().length > 0
+    ) {
+      next[k] = ex.trim()
+    }
+  }
+  return next
+}
+
 export interface SummaryUpdateRequest {
   title?: string
   goal?: string
