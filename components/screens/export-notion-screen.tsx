@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { exportProjectToNotion } from "@/lib/api/projects"
-import { sessionSummaryToUpdateRequest, hasSummaryContent } from "@/lib/api/summary"
+import {
+  sessionSummaryToUpdateRequest,
+  hasSummaryContent,
+  summaryToNonEmptyUpdateRequest,
+  updateProjectSummary,
+} from "@/lib/api/summary"
 
 export function ExportNotionScreen() {
   const { setScreen, getCurrentProject, exportedSummary } = useAppStore()
@@ -35,6 +40,10 @@ export function ExportNotionScreen() {
     if (project?.backendProjectId && summarySource) {
       setExporting(true)
       try {
+        const savePayload = summaryToNonEmptyUpdateRequest(summarySource)
+        if (Object.keys(savePayload).length > 0) {
+          await updateProjectSummary(project.backendProjectId, savePayload)
+        }
         const url = await exportProjectToNotion({
           projectId: project.backendProjectId,
           summary: sessionSummaryToUpdateRequest(summarySource),

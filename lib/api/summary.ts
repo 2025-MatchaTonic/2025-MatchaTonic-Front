@@ -2,6 +2,7 @@
  * 백엔드 SummaryUpdateRequest DTO와 동일한 필드명으로 요약을 전송합니다.
  * (기존 selectedAnswers: string[] 또는 sessionSummary 단일 필드 대신 사용)
  */
+import { apiRequest } from "./request"
 import type { SessionSummary } from "@/lib/store"
 
 export const SESSION_SUMMARY_KEYS: (keyof SessionSummary)[] = [
@@ -64,7 +65,7 @@ export interface SummaryUpdateRequest {
   deliverables?: string
 }
 
-/** 세션 요약 → API 요청 객체 (빈 문자열은 그대로 전달, 백엔드 DTO 매핑용) */
+/** 세션 요약 전체 → API 요청 객체 (빈 문자열 포함) */
 export function sessionSummaryToUpdateRequest(s: SessionSummary): SummaryUpdateRequest {
   return {
     title: s.title ?? "",
@@ -73,6 +74,48 @@ export function sessionSummaryToUpdateRequest(s: SessionSummary): SummaryUpdateR
     roles: s.roles ?? "",
     dueDate: s.dueDate ?? "",
     deliverables: s.deliverables ?? "",
+  }
+}
+
+/** 세션 요약에서 비어있지 않은 필드만 추려 PATCH payload 생성 */
+export function summaryToNonEmptyUpdateRequest(
+  s: SessionSummary
+): SummaryUpdateRequest {
+  const payload: SummaryUpdateRequest = {}
+  for (const k of SESSION_SUMMARY_KEYS) {
+    const v = summaryFieldString(s[k]).trim()
+    if (v.length > 0) payload[k] = v
+  }
+  return payload
+}
+
+/** 변경된 필드 + 비어있지 않은 값만 PATCH payload로 생성 */
+export function buildPartialSummaryUpdateRequest(
+  prev: SessionSummary,
+  next: SessionSummary
+): SummaryUpdateRequest {
+  const payload: SummaryUpdateRequest = {}
+  for (const k of SESSION_SUMMARY_KEYS) {
+    const pv = summaryFieldString(prev[k]).trim()
+    const nv = summaryFieldString(next[k]).trim()
+    if (pv !== nv && nv.length > 0) {
+      payload[k] = nv
+    }
+  }
+  return payload
+}
+
+export async function updateProjectSummary(
+  projectId: number,
+  payload: SummaryUpdateRequest
+): Promise<void> {
+  const res = await apiRequest(`/api/projects/${projectId}/summary`, {
+    method: "PATCH",
+    body: payload,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`요약 저장 실패: ${res.status}${text ? ` ${text}` : ""}`)
   }
 }
 

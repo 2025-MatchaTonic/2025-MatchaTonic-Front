@@ -8,7 +8,9 @@ import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
 import {
-  sessionSummaryToUpdateRequest,
+  summaryToNonEmptyUpdateRequest,
+  buildPartialSummaryUpdateRequest,
+  updateProjectSummary,
   mergeSessionSummaryFromExtract,
   isSessionSummaryComplete,
   sessionSummaryEqual,
@@ -31,7 +33,15 @@ import {
 } from "@/components/ui/dialog"
 
 
-function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate: (field: string, value: string) => void }) {
+function SummaryPanel({
+  summary,
+  onUpdate,
+  saveStatus,
+}: {
+  summary: SessionSummary
+  onUpdate: (field: string, value: string) => void
+  saveStatus?: "idle" | "modified" | "saving" | "saved" | "error"
+}) {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
   const skipBlurCommitRef = useRef(false)
@@ -90,9 +100,19 @@ function SummaryPanel({ summary, onUpdate }: { summary: SessionSummary; onUpdate
     <div className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card/80 backdrop-blur-sm p-6 shadow-lg shadow-primary/5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm text-card-foreground" style={{fontWeight: 600}}>세션 요약</h3>
-        <Badge variant="secondary" className="text-xs">
-          {filledCount}/{fields.length}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {saveStatus && saveStatus !== "idle" && (
+            <span className="text-[11px] text-muted-foreground">
+              {saveStatus === "modified" && "수정됨"}
+              {saveStatus === "saving" && "저장 중"}
+              {saveStatus === "saved" && "저장됨"}
+              {saveStatus === "error" && "저장 실패"}
+            </span>
+          )}
+          <Badge variant="secondary" className="text-xs">
+            {filledCount}/{fields.length}
+          </Badge>
+        </div>
       </div>
       <div className="flex flex-col gap-3">
         {fields.map((field) => (
@@ -296,11 +316,56 @@ export function ChatScreen() {
   const [membersLoading, setMembersLoading] = useState(false)
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
   const [inviteCodeCopied, setInviteCodeCopied] = useState(false)
+  const [summarySaveStatus, setSummarySaveStatus] = useState<
+    "idle" | "modified" | "saving" | "saved" | "error"
+  >("idle")
 
   const { connected: stompConnected, send: stompSend } = useChatStomp(
     project?.backendProjectId,
     project?.id ?? ""
   )
+
+  useEffect(() => {
+    setSummarySaveStatus("idle")
+  }, [project?.id])
+
+  const persistSummaryPatch = useCallback(
+    async (prevSummary: SessionSummary, nextSummary: SessionSummary) => {
+      if (!project?.backendProjectId) return true
+      const payload = buildPartialSummaryUpdateRequest(prevSummary, nextSummary)
+      if (Object.keys(payload).length === 0) {
+        setSummarySaveStatus("saved")
+        return true
+      }
+      setSummarySaveStatus("saving")
+      try {
+        await updateProjectSummary(project.backendProjectId, payload)
+        setSummarySaveStatus("saved")
+        return true
+      } catch (err) {
+        console.warn("[요약 저장] 실패:", err)
+        setSummarySaveStatus("error")
+        return false
+      }
+    },
+    [project?.backendProjectId]
+  )
+
+  const ensureSummarySaved = useCallback(async () => {
+    if (!project?.backendProjectId) return true
+    const payload = summaryToNonEmptyUpdateRequest(project.sessionSummary)
+    if (Object.keys(payload).length === 0) return true
+    setSummarySaveStatus("saving")
+    try {
+      await updateProjectSummary(project.backendProjectId, payload)
+      setSummarySaveStatus("saved")
+      return true
+    } catch (err) {
+      console.warn("[요약 저장] 선저장 실패:", err)
+      setSummarySaveStatus("error")
+      return false
+    }
+  }, [project?.backendProjectId, project?.sessionSummary])
 
   // 채팅 텍스트 → 세션 요약 자동 반영, 전 항목 완료 시 템플릿 안내 AI 메시지
   useEffect(() => {
@@ -352,6 +417,8 @@ export function ChatScreen() {
         templateExportOfferShown: true,
         lastUpdated: new Date(),
       })
+      setSummarySaveStatus("modified")
+      void persistSummaryPatch(project.sessionSummary, merged)
       return
     }
 
@@ -360,6 +427,8 @@ export function ChatScreen() {
         sessionSummary: merged,
         lastUpdated: new Date(),
       })
+      setSummarySaveStatus("modified")
+      void persistSummaryPatch(project.sessionSummary, merged)
       return
     }
 
@@ -389,6 +458,7 @@ export function ChatScreen() {
     project?.messages,
     project?.sessionSummary,
     project?.templateExportOfferShown,
+    persistSummaryPatch,
     updateProject,
   ])
 
@@ -512,11 +582,13 @@ export function ChatScreen() {
     handleSendWithText(combinedText, true)
   }
 
-  const handleButtonClick = (button: MessageButton) => {
+  const handleButtonClick = async (button: MessageButton) => {
     if (!project) return
     
     // 노션 링크 버튼 처리 - 노션 내보내기로 이동
     if (button.id === "notion-link") {
+      const ok = await ensureSummarySaved()
+      if (!ok) return
       setExportedSummary(project.sessionSummary)
       setCurrentProjectId(project.id)
       setScreen("export-notion")
@@ -778,11 +850,14 @@ export function ChatScreen() {
   const handleSummaryUpdate = (field: string, value: string) => {
     if (!project) return
     
+    const prevSummary = project.sessionSummary
     const updatedSummary = { ...project.sessionSummary, [field]: value }
     updateProject(project.id, {
       sessionSummary: updatedSummary,
       lastUpdated: new Date(),
     })
+    setSummarySaveStatus("modified")
+    void persistSummaryPatch(prevSummary, updatedSummary)
   }
 
   const clearInput = () => {
@@ -843,6 +918,8 @@ export function ChatScreen() {
 
   const handleTemplateGenerate = async () => {
     if (selectedTemplateTypes.length === 0) return
+    const saveOk = await ensureSummarySaved()
+    if (!saveOk) return
     
     setShowTemplateOptions(false)
     setIsGeneratingTemplate(true)
@@ -884,8 +961,8 @@ export function ChatScreen() {
       .getState()
       .projects.find((p) => p.id === project.id)
     const summaryPayload = latestForTemplates
-      ? sessionSummaryToUpdateRequest(latestForTemplates.sessionSummary)
-      : sessionSummaryToUpdateRequest(project.sessionSummary)
+      ? summaryToNonEmptyUpdateRequest(latestForTemplates.sessionSummary)
+      : summaryToNonEmptyUpdateRequest(project.sessionSummary)
 
     const canCallTemplatesApi =
       !!latestForTemplates?.backendProjectId && !!getApiBaseUrl()
@@ -1027,7 +1104,11 @@ export function ChatScreen() {
         {/* 모바일 요약 */}
         {showSummary && (
           <div className="border-b border-border p-4 md:hidden">
-            <SummaryPanel summary={project.sessionSummary} onUpdate={handleSummaryUpdate} />
+            <SummaryPanel
+              summary={project.sessionSummary}
+              onUpdate={handleSummaryUpdate}
+              saveStatus={summarySaveStatus}
+            />
           </div>
         )}
 
@@ -1127,7 +1208,11 @@ export function ChatScreen() {
 
       {/* 우측 요약 사이드바 */}
       <aside className="w-80 shrink-0 overflow-y-auto border-l border-border/50 bg-card/30 backdrop-blur-sm p-5">
-        <SummaryPanel summary={project.sessionSummary} onUpdate={handleSummaryUpdate} />
+        <SummaryPanel
+          summary={project.sessionSummary}
+          onUpdate={handleSummaryUpdate}
+          saveStatus={summarySaveStatus}
+        />
         {showConfirm && (
           <Button
             onClick={() => setShowConfirm(true)}
