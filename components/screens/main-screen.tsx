@@ -11,6 +11,7 @@ import {
   parseProjectCreatedAtFromApi,
 } from "@/lib/api/projects"
 import { getApiBaseUrl } from "@/lib/api/client"
+import { clearAuthToken, getAuthToken } from "@/lib/auth"
 import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -123,12 +124,19 @@ function ProjectCard({ project }: { project: Project }) {
                 disabled={deleteLoading}
                 onClick={async () => {
                   const useApi = !!getApiBaseUrl() && project.backendProjectId != null
+                  const hasToken = !!getAuthToken()
                   const confirmMsg = useApi
                     ? "이 프로젝트를 삭제할까요? 서버에서도 제거됩니다."
                     : "로컬에서만 제거합니다. API·서버에 없으면 새로고침 시 목록이 다시 나타날 수 있습니다. 계속할까요?"
                   const ok = window.confirm(confirmMsg)
                   if (!ok) return
                   setShowTeam(false)
+                  if (useApi && !hasToken) {
+                    clearAuthToken()
+                    setCurrentProjectId(null)
+                    setScreen("login")
+                    return
+                  }
                   console.info("[프로젝트 삭제][요청 직전]", {
                     projectId: project.id,
                     backendProjectId: project.backendProjectId ?? null,
@@ -159,6 +167,12 @@ function ProjectCard({ project }: { project: Project }) {
                       userEmail: user?.email ?? null,
                       error: e instanceof Error ? e.message : e,
                     })
+                    if (e instanceof Error && e.message === "UNAUTHORIZED") {
+                      clearAuthToken()
+                      setCurrentProjectId(null)
+                      setScreen("login")
+                      return
+                    }
                     const msg =
                       e instanceof Error ? e.message : "프로젝트 삭제에 실패했습니다."
                     window.alert(msg)

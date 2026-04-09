@@ -247,6 +247,9 @@ export async function joinProject(
 export async function deleteProject(projectId: number): Promise<void> {
   const res = await apiRequest(`/api/projects/${projectId}`, { method: "DELETE" })
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("UNAUTHORIZED")
+    }
     const text = await res.text().catch(() => "")
     throw new Error(`프로젝트 삭제 실패: ${res.status}${text ? ` ${text}` : ""}`)
   }
