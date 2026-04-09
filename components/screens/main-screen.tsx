@@ -32,7 +32,14 @@ function generateCode(): string {
 }
 
 function ProjectCard({ project }: { project: Project }) {
-  const { setCurrentProjectId, setScreen, updateProject, removeProject, currentProjectId } = useAppStore()
+  const {
+    setCurrentProjectId,
+    setScreen,
+    updateProject,
+    removeProject,
+    currentProjectId,
+    user,
+  } = useAppStore()
   const [showTeam, setShowTeam] = useState(false)
   const [membersLoading, setMembersLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -122,17 +129,36 @@ function ProjectCard({ project }: { project: Project }) {
                   const ok = window.confirm(confirmMsg)
                   if (!ok) return
                   setShowTeam(false)
+                  console.info("[프로젝트 삭제][요청 직전]", {
+                    projectId: project.id,
+                    backendProjectId: project.backendProjectId ?? null,
+                    projectRole: project.role,
+                    currentProjectId,
+                    userEmail: user?.email ?? null,
+                    useApi,
+                  })
                   try {
                     if (useApi) {
                       setDeleteLoading(true)
                       await deleteProject(project.backendProjectId!)
                     }
+                    console.info("[프로젝트 삭제][성공]", {
+                      projectId: project.id,
+                      backendProjectId: project.backendProjectId ?? null,
+                    })
                     removeProject(project.id)
                     if (currentProjectId === project.id) {
                       setCurrentProjectId(null)
                       setScreen("main")
                     }
                   } catch (e) {
+                    console.error("[프로젝트 삭제][실패]", {
+                      projectId: project.id,
+                      backendProjectId: project.backendProjectId ?? null,
+                      projectRole: project.role,
+                      userEmail: user?.email ?? null,
+                      error: e instanceof Error ? e.message : e,
+                    })
                     const msg =
                       e instanceof Error ? e.message : "프로젝트 삭제에 실패했습니다."
                     window.alert(msg)
