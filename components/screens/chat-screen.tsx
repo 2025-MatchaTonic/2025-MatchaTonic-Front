@@ -319,6 +319,9 @@ export function ChatScreen() {
   const [summarySaveStatus, setSummarySaveStatus] = useState<
     "idle" | "modified" | "saving" | "saved" | "error"
   >("idle")
+  const summarySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSyncedSummaryRef = useRef<SessionSummary | null>(null)
+  const summarySaveReqSeqRef = useRef(0)
 
   const { connected: stompConnected, send: stompSend } = useChatStomp(
     project?.backendProjectId,
@@ -327,45 +330,76 @@ export function ChatScreen() {
 
   useEffect(() => {
     setSummarySaveStatus("idle")
+    if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current)
+    summarySaveTimerRef.current = null
+    lastSyncedSummaryRef.current = project?.sessionSummary ?? null
+    summarySaveReqSeqRef.current = 0
   }, [project?.id])
 
-  const persistSummaryPatch = useCallback(
-    async (prevSummary: SessionSummary, nextSummary: SessionSummary) => {
+  const flushSummarySave = useCallback(
+    async (summaryToSave?: SessionSummary) => {
       if (!project?.backendProjectId) return true
+
+      const latestProject = useAppStore
+        .getState()
+        .projects.find((p) => p.id === project.id)
+      const nextSummary =
+        summaryToSave ??
+        latestProject?.sessionSummary ??
+        project.sessionSummary
+
+      const prevSummary = lastSyncedSummaryRef.current ?? nextSummary
       const payload = buildPartialSummaryUpdateRequest(prevSummary, nextSummary)
       if (Object.keys(payload).length === 0) {
         setSummarySaveStatus("saved")
         return true
       }
+
       setSummarySaveStatus("saving")
+      const reqSeq = ++summarySaveReqSeqRef.current
       try {
         await updateProjectSummary(project.backendProjectId, payload)
+        // 더 최신 저장 요청이 이미 있으면 상태를 덮어쓰지 않음
+        if (reqSeq !== summarySaveReqSeqRef.current) return true
+        lastSyncedSummaryRef.current = nextSummary
         setSummarySaveStatus("saved")
         return true
       } catch (err) {
+        if (reqSeq !== summarySaveReqSeqRef.current) return false
         console.warn("[요약 저장] 실패:", err)
         setSummarySaveStatus("error")
         return false
       }
     },
-    [project?.backendProjectId]
+    [project?.backendProjectId, project?.id, project?.sessionSummary]
+  )
+
+  const queueSummarySave = useCallback(
+    (nextSummary: SessionSummary) => {
+      setSummarySaveStatus("modified")
+      if (summarySaveTimerRef.current) clearTimeout(summarySaveTimerRef.current)
+      summarySaveTimerRef.current = setTimeout(() => {
+        void flushSummarySave(nextSummary)
+      }, 400)
+    },
+    [flushSummarySave]
   )
 
   const ensureSummarySaved = useCallback(async () => {
     if (!project?.backendProjectId) return true
-    const payload = summaryToNonEmptyUpdateRequest(project.sessionSummary)
-    if (Object.keys(payload).length === 0) return true
-    setSummarySaveStatus("saving")
-    try {
-      await updateProjectSummary(project.backendProjectId, payload)
-      setSummarySaveStatus("saved")
-      return true
-    } catch (err) {
-      console.warn("[요약 저장] 선저장 실패:", err)
-      setSummarySaveStatus("error")
-      return false
+    if (summarySaveTimerRef.current) {
+      clearTimeout(summarySaveTimerRef.current)
+      summarySaveTimerRef.current = null
     }
-  }, [project?.backendProjectId, project?.sessionSummary])
+    const latestProject = useAppStore
+      .getState()
+      .projects.find((p) => p.id === project.id)
+    const summary =
+      latestProject?.sessionSummary ?? project.sessionSummary
+    const payload = summaryToNonEmptyUpdateRequest(summary)
+    if (Object.keys(payload).length === 0) return true
+    return flushSummarySave(summary)
+  }, [flushSummarySave, project?.backendProjectId, project?.id, project?.sessionSummary])
 
   // 채팅 텍스트 → 세션 요약 자동 반영, 전 항목 완료 시 템플릿 안내 AI 메시지
   useEffect(() => {
@@ -417,8 +451,7 @@ export function ChatScreen() {
         templateExportOfferShown: true,
         lastUpdated: new Date(),
       })
-      setSummarySaveStatus("modified")
-      void persistSummaryPatch(project.sessionSummary, merged)
+      queueSummarySave(merged)
       return
     }
 
@@ -427,8 +460,7 @@ export function ChatScreen() {
         sessionSummary: merged,
         lastUpdated: new Date(),
       })
-      setSummarySaveStatus("modified")
-      void persistSummaryPatch(project.sessionSummary, merged)
+      queueSummarySave(merged)
       return
     }
 
@@ -458,7 +490,7 @@ export function ChatScreen() {
     project?.messages,
     project?.sessionSummary,
     project?.templateExportOfferShown,
-    persistSummaryPatch,
+    queueSummarySave,
     updateProject,
   ])
 
@@ -849,15 +881,13 @@ export function ChatScreen() {
 
   const handleSummaryUpdate = (field: string, value: string) => {
     if (!project) return
-    
-    const prevSummary = project.sessionSummary
+
     const updatedSummary = { ...project.sessionSummary, [field]: value }
     updateProject(project.id, {
       sessionSummary: updatedSummary,
       lastUpdated: new Date(),
     })
-    setSummarySaveStatus("modified")
-    void persistSummaryPatch(prevSummary, updatedSummary)
+    queueSummarySave(updatedSummary)
   }
 
   const clearInput = () => {

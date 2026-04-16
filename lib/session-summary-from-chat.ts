@@ -60,7 +60,14 @@ export function extractSessionSummaryFromMessages(
   messages: Message[],
   current: SessionSummary
 ): Partial<SessionSummary> {
-  const text = messages.map((m) => m.text).join("\n")
+  // 최신 대화를 우선 반영하기 위해 최근 메시지 역순으로 스캔한다.
+  // (과거 문맥이 먼저 매칭되어 요약이 엉키는 문제 방지)
+  const text = messages
+    .slice(-40)
+    .filter((m) => !m.text.includes("세션 요약이 모두 채워졌습니다."))
+    .reverse()
+    .map((m) => m.text)
+    .join("\n")
   if (!text.trim()) return {}
 
   const fromJson = tryJsonBlock(text)
