@@ -5,9 +5,17 @@ type SummaryKey = keyof SessionSummary
 
 function cleanCapture(s: string): string {
   return s
+    .replace(/@\w+/g, " ")
     .replace(/^[\s"'「」『』【】[\]()]+|[\s"'「」『』【】[\]()]+$/g, "")
     .trim()
     .slice(0, 800)
+}
+
+function normalizeSummarySourceText(s: string): string {
+  return s
+    .replace(/@\w+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 function firstCapture(text: string, patterns: RegExp[]): string | undefined {
@@ -64,9 +72,14 @@ export function extractSessionSummaryFromMessages(
   // (과거 문맥이 먼저 매칭되어 요약이 엉키는 문제 방지)
   const text = messages
     .slice(-40)
-    .filter((m) => !m.text.includes("세션 요약이 모두 채워졌습니다."))
+    .filter(
+      (m) =>
+        !m.text.includes("세션 요약이 모두 채워졌습니다.") &&
+        !m.text.includes("도움이 필요하시면 @mates를 태그해주세요.") &&
+        !m.text.includes("프로젝트를 시작하기에 앞서 아래 질문에 답해주세요")
+    )
     .reverse()
-    .map((m) => m.text)
+    .map((m) => normalizeSummarySourceText(m.text))
     .join("\n")
   if (!text.trim()) return {}
 
