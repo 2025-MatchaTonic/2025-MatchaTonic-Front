@@ -400,10 +400,21 @@ export function ChatScreen() {
     try {
       let raw: Record<string, unknown> | null =
         await fetchProjectSummary(project.backendProjectId)
+      let source: "summary" | "details" | "none" = raw ? "summary" : "none"
       if (!raw) {
         const details = await fetchProjectDetails(project.backendProjectId)
-        raw = extractSummaryFromAny(details)
+        const fromDetails = extractSummaryFromAny(details)
+        if (fromDetails) {
+          raw = fromDetails
+          source = "details"
+        }
+        if (!raw && details) {
+          // details 자체에 title/subject가 평탄하게 들어 있는 케이스 폴백
+          raw = details as unknown as Record<string, unknown>
+          source = "details"
+        }
       }
+      console.log("[요약 재조회] source=", source, "raw=", raw)
       if (!raw) return
 
       const pickStr = (k: string): string | undefined => {
@@ -433,6 +444,7 @@ export function ChatScreen() {
       const del = pickStr("deliverables") ?? pickStr("outputs")
       if (del) extracted.deliverables = del
 
+      console.log("[요약 재조회] extracted=", extracted)
       if (Object.keys(extracted).length === 0) return
 
       const latest = useAppStore
