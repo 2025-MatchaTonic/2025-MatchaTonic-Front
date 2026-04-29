@@ -25,29 +25,39 @@ function isAiMessage(item: ChatMessageResponse): boolean {
   return false
 }
 
+function safeTimestamp(value: unknown): Date {
+  if (value == null) return new Date()
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
+  if (typeof value === "string" || typeof value === "number") {
+    const d = new Date(value)
+    if (!Number.isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
 /** API 응답을 앱 Message 형식으로 변환 */
 export function mapChatMessageToAppFormat(
   item: ChatMessageResponse,
   index: number
 ): Message {
-  const timestamp = new Date(item.createdAt)
-  let text = item.message
+  const timestamp = safeTimestamp(item?.createdAt)
+  let text = item?.message ?? ""
 
-  if (item.type === "ENTER") {
-    text = `${item.senderName}님이 입장했습니다.`
-  } else if (item.type === "LEAVE") {
-    text = `${item.senderName}님이 퇴장했습니다.`
+  if (item?.type === "ENTER") {
+    text = `${item.senderName ?? "사용자"}님이 입장했습니다.`
+  } else if (item?.type === "LEAVE") {
+    text = `${item.senderName ?? "사용자"}님이 퇴장했습니다.`
   }
 
-  const sender = isAiMessage(item) ? "ai" : "user"
+  const sender = item && isAiMessage(item) ? "ai" : "user"
 
   return {
-    id: `api-${item.projectId}-${item.createdAt}-${index}`,
+    id: `api-${item?.projectId ?? "unknown"}-${item?.createdAt ?? index}-${index}`,
     sender,
     text,
     timestamp,
-    senderEmail: item.senderEmail,
-    senderName: item.senderName,
+    senderEmail: item?.senderEmail,
+    senderName: item?.senderName,
   }
 }
 
