@@ -243,6 +243,58 @@ export async function joinProject(
   throw new Error("참여는 완료되었습니다. 페이지를 새로고침해 주세요.")
 }
 
+/**
+ * GET /api/projects/{projectId}/summary
+ * 백엔드가 별도 summary 엔드포인트를 제공하는 경우에만 동작합니다.
+ * 404/지원 안 함 → null 반환 (호출 측에서 detail 응답 폴백을 시도)
+ */
+export async function fetchProjectSummary(
+  projectId: number
+): Promise<Record<string, unknown> | null> {
+  const res = await apiRequest(`/api/projects/${projectId}/summary`, {
+    method: "GET",
+  })
+  if (!res.ok) return null
+  try {
+    const data = await res.json()
+    if (data && typeof data === "object") {
+      if ("data" in data && (data as { data?: unknown }).data && typeof (data as { data?: unknown }).data === "object") {
+        return (data as { data: Record<string, unknown> }).data
+      }
+      if ("content" in data && (data as { content?: unknown }).content && typeof (data as { content?: unknown }).content === "object") {
+        return (data as { content: Record<string, unknown> }).content
+      }
+      return data as Record<string, unknown>
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 다양한 응답 모양에서 summary 후보 객체를 추출합니다.
+ * (백엔드 변경 전·후 모두 대응)
+ */
+export function extractSummaryFromAny(
+  source: unknown
+): Record<string, unknown> | null {
+  if (!source || typeof source !== "object") return null
+  const o = source as Record<string, unknown>
+  const candidates: unknown[] = [
+    o.summary,
+    o.sessionSummary,
+    o.projectSummary,
+    o.collectedData,
+  ]
+  for (const c of candidates) {
+    if (c && typeof c === "object" && !Array.isArray(c)) {
+      return c as Record<string, unknown>
+    }
+  }
+  return null
+}
+
 /** 리더 전용. 서버에서 삭제되지 않으면 새로고침 시 목록에 다시 나타납니다. */
 export async function deleteProject(projectId: number): Promise<void> {
   const res = await apiRequest(`/api/projects/${projectId}`, { method: "DELETE" })

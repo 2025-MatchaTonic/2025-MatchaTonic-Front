@@ -4,7 +4,12 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { useAppStore, type Message, type MessageButton, type SessionSummary } from "@/lib/store"
 import { fetchChatMessages, mapChatMessageToAppFormat, sendChatMessageViaApi } from "@/lib/api/chat"
 import { getApiBaseUrl } from "@/lib/api/client"
-import { fetchProjectMembers, fetchProjectDetails } from "@/lib/api/projects"
+import {
+  fetchProjectMembers,
+  fetchProjectDetails,
+  fetchProjectSummary,
+  extractSummaryFromAny,
+} from "@/lib/api/projects"
 import { useChatStomp } from "@/lib/websocket/use-chat-stomp"
 import { generateProjectTemplates } from "@/lib/api/ai"
 import {
@@ -385,6 +390,73 @@ export function ChatScreen() {
     [flushSummarySave]
   )
 
+  /**
+   * AI 응답 후 백엔드의 최신 summary(collectedData 포함 가능)를
+   * 빈 필드 한정으로 sessionSummary에 병합한다.
+   * 수동 입력값은 보호 (mergeSessionSummaryFromExtract 의 빈 필드만 채움 정책)
+   */
+  const refreshSummaryFromBackend = useCallback(async () => {
+    if (!project?.backendProjectId) return
+    try {
+      let raw: Record<string, unknown> | null =
+        await fetchProjectSummary(project.backendProjectId)
+      if (!raw) {
+        const details = await fetchProjectDetails(project.backendProjectId)
+        raw = extractSummaryFromAny(details)
+      }
+      if (!raw) return
+
+      const pickStr = (k: string): string | undefined => {
+        const v = raw![k]
+        if (typeof v === "string") {
+          const t = v.trim()
+          return t.length > 0 ? t : undefined
+        }
+        return undefined
+      }
+
+      const extracted: Partial<SessionSummary> = {}
+      const t =
+        pickStr("title") ??
+        pickStr("subject") ??
+        pickStr("projectTitle")
+      if (t && t !== "새 프로젝트") extracted.title = t
+      const g = pickStr("goal") ?? pickStr("objective")
+      if (g) extracted.goal = g
+      const ts =
+        pickStr("teamSize") ?? pickStr("team_size") ?? pickStr("memberCount")
+      if (ts) extracted.teamSize = ts
+      const r = pickStr("roles") ?? pickStr("role")
+      if (r) extracted.roles = r
+      const d = pickStr("dueDate") ?? pickStr("due_date") ?? pickStr("deadline")
+      if (d) extracted.dueDate = d
+      const del = pickStr("deliverables") ?? pickStr("outputs")
+      if (del) extracted.deliverables = del
+
+      if (Object.keys(extracted).length === 0) return
+
+      const latest = useAppStore
+        .getState()
+        .projects.find((p) => p.id === project.id)
+      if (!latest) return
+
+      const merged = mergeSessionSummaryFromExtract(
+        latest.sessionSummary,
+        extracted
+      )
+      if (sessionSummaryEqual(latest.sessionSummary, merged)) return
+
+      // 서버 기준값이므로 lastSyncedSummaryRef도 함께 갱신해 PATCH 트리거를 만들지 않는다.
+      lastSyncedSummaryRef.current = merged
+      updateProject(project.id, {
+        sessionSummary: merged,
+        lastUpdated: new Date(),
+      })
+    } catch (err) {
+      console.warn("[요약 재조회] 실패:", err)
+    }
+  }, [project?.backendProjectId, project?.id, updateProject])
+
   const ensureSummarySaved = useCallback(async () => {
     if (!project?.backendProjectId) return true
     if (summarySaveTimerRef.current) {
@@ -541,6 +613,16 @@ export function ChatScreen() {
       .catch(() => {})
       .finally(() => setInviteCodeLoading(false))
   }, [project?.backendProjectId, project?.id, updateProject])
+
+  // 화면 진입 시 백엔드 summary 1회 동기화 (빈 필드만 채움)
+  const summaryRefreshedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!project?.backendProjectId) return
+    const key = `${project.id}-${project.backendProjectId}`
+    if (summaryRefreshedRef.current === key) return
+    summaryRefreshedRef.current = key
+    void refreshSummaryFromBackend()
+  }, [project?.backendProjectId, project?.id, refreshSummaryFromBackend])
 
   // 백엔드 API: 과거 채팅 내역 조회
   // API가 빈 배열을 반환해도 기존(persist) 메시지를 덮어쓰지 않음
@@ -820,19 +902,27 @@ export function ChatScreen() {
     }
   }, [project, updateProject, isLoadingHistory])
 
-  // AI 응답 수신 시 로딩 해제
+  // AI 응답 수신 시 로딩 해제 + 백엔드 summary 재조회
   const prevMsgCountRef = useRef(project?.messages.length ?? 0)
   useEffect(() => {
     if (!project) return
     const currentCount = project.messages.length
-    if (currentCount > prevMsgCountRef.current && isAiTyping) {
+    if (currentCount > prevMsgCountRef.current) {
       const lastMsg = project.messages[currentCount - 1]
       if (lastMsg?.sender === "ai") {
-        setIsAiTyping(false)
+        if (isAiTyping) setIsAiTyping(false)
+
+        // AI 응답이 자연어로 오면 정규식 추출이 안 잡힐 수 있어,
+        // 백엔드에 저장된 summary(collectedData 포함 가능)를 빈 필드 한정으로 병합한다.
+        // 백엔드가 GET /summary 또는 GET /projects/{id} 응답에 summary를 포함해야 동작한다.
+        if (project.backendProjectId) {
+          void refreshSummaryFromBackend()
+        }
       }
     }
     prevMsgCountRef.current = currentCount
-  }, [project?.messages.length, project?.messages, isAiTyping])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.messages.length])
 
   // 자동 스크롤
   useEffect(() => {
