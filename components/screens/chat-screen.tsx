@@ -427,11 +427,8 @@ export function ChatScreen() {
       }
 
       const extracted: Partial<SessionSummary> = {}
-      const t =
-        pickStr("title") ??
-        pickStr("subject") ??
-        pickStr("projectTitle")
-      if (t && t !== "새 프로젝트") extracted.title = t
+      // collectedData.title 등은 채팅방 이름으로 쓰일 수 있어 서버 값으로 병합하지 않음
+      // (예: 과제/봇 설명 문장이 정상 프로젝트 제목과 구분 불가)
       const g = pickStr("goal") ?? pickStr("objective")
       if (g) extracted.goal = g
       const ts =
@@ -824,7 +821,7 @@ export function ChatScreen() {
     const userMsg: Message = {
       id: crypto.randomUUID(),
       sender: "user",
-      text: button.value,
+      text: /^BTN_/.test(button.value) ? button.text : button.value,
       timestamp: new Date(),
       senderEmail: user?.email,
       senderName: user?.name,
@@ -897,7 +894,11 @@ export function ChatScreen() {
               hasButtons: true,
               buttons: [
                 { id: "yes", text: "예", value: "예, 프로젝트 주제가 있습니다" },
-                { id: "no", text: "아니오", value: "아니오, 아직 주제가 없습니다" },
+                {
+                  id: "no",
+                  text: "주제 없음",
+                  value: "BTN_NO",
+                },
               ],
             }
 

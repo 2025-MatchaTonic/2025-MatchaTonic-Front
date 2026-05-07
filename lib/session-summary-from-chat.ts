@@ -74,6 +74,7 @@ export function extractSessionSummaryFromMessages(
     .slice(-40)
     .filter(
       (m) =>
+        m.sender === "user" &&
         !m.text.includes("세션 요약이 모두 채워졌습니다.") &&
         !m.text.includes("도움이 필요하시면 @mates를 태그해주세요.") &&
         !m.text.includes("프로젝트를 시작하기에 앞서 아래 질문에 답해주세요")
