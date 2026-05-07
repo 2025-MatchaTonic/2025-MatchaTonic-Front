@@ -60,14 +60,21 @@ function tryJsonBlock(text: string): Partial<SessionSummary> | null {
   }
 }
 
+export type ExtractSummaryFromMessagesOptions = {
+  /** 프로젝트(채팅방) 표시명과 동일한 문자열은 주제 제목으로 채우지 않음 */
+  workspaceDisplayName?: string
+}
+
 /**
  * 채팅 전체 텍스트에서 세션 요약 후보를 추출합니다.
  * 빈 필드만 채우려면 mergeSessionSummaryFromExtract 와 함께 사용합니다.
  */
 export function extractSessionSummaryFromMessages(
   messages: Message[],
-  current: SessionSummary
+  current: SessionSummary,
+  options?: ExtractSummaryFromMessagesOptions
 ): Partial<SessionSummary> {
+  const ws = options?.workspaceDisplayName?.trim()
   // 최신 대화를 우선 반영하기 위해 최근 메시지 역순으로 스캔한다.
   // (과거 문맥이 먼저 매칭되어 요약이 엉키는 문제 방지)
   const text = messages
@@ -141,6 +148,10 @@ export function extractSessionSummaryFromMessages(
     } catch {
       /* ignore */
     }
+  }
+
+  if (ws && out.title?.trim() === ws) {
+    delete out.title
   }
 
   return out

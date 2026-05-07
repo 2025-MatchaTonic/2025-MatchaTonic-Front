@@ -14,7 +14,7 @@ export const SESSION_SUMMARY_KEYS: (keyof SessionSummary)[] = [
   "deliverables",
 ]
 
-function summaryFieldString(v: unknown): string {
+export function summaryFieldString(v: unknown): string {
   if (v == null) return ""
   if (typeof v === "string") return v
   if (v instanceof Date) return v.toISOString()
@@ -54,6 +54,19 @@ export function mergeSessionSummaryFromExtract(
     }
   }
   return next
+}
+
+/**
+ * 세션 요약 제목이 프로젝트(채팅방) 표시명과 같으면 주제가 아니라 워크스페이스 이름이 들어간 경우로 보고 비운다.
+ */
+export function stripSessionTitleIfWorkspaceMirror(
+  workspaceDisplayName: string,
+  summary: SessionSummary
+): SessionSummary {
+  const n = summaryFieldString(workspaceDisplayName).trim()
+  const t = summaryFieldString(summary.title).trim()
+  if (!n || !t || t !== n) return summary
+  return { ...summary, title: "" }
 }
 
 export interface SummaryUpdateRequest {

@@ -19,6 +19,8 @@ import {
   mergeSessionSummaryFromExtract,
   isSessionSummaryComplete,
   sessionSummaryEqual,
+  stripSessionTitleIfWorkspaceMirror,
+  summaryFieldString,
 } from "@/lib/api/summary"
 import {
   extractSessionSummaryFromMessages,
@@ -454,12 +456,28 @@ export function ChatScreen() {
         latest.sessionSummary,
         extracted
       )
-      if (sessionSummaryEqual(latest.sessionSummary, merged)) return
+      const cleaned = stripSessionTitleIfWorkspaceMirror(latest.name, merged)
+      if (sessionSummaryEqual(latest.sessionSummary, cleaned)) return
+
+      const titleHadMirror =
+        summaryFieldString(merged.title).trim() !==
+        summaryFieldString(cleaned.title).trim()
+      if (
+        titleHadMirror &&
+        !summaryFieldString(cleaned.title).trim() &&
+        project.backendProjectId
+      ) {
+        try {
+          await updateProjectSummary(project.backendProjectId, { title: "" })
+        } catch (e) {
+          console.warn("[요약 재조회] 잘못된 제목 제거 후 서버 동기화 실패:", e)
+        }
+      }
 
       // 서버 기준값이므로 lastSyncedSummaryRef도 함께 갱신해 PATCH 트리거를 만들지 않는다.
-      lastSyncedSummaryRef.current = merged
+      lastSyncedSummaryRef.current = cleaned
       updateProject(project.id, {
-        sessionSummary: merged,
+        sessionSummary: cleaned,
         lastUpdated: new Date(),
       })
     } catch (err) {
@@ -501,14 +519,16 @@ export function ChatScreen() {
 
     const extracted = extractSessionSummaryFromMessages(
       project.messages,
-      project.sessionSummary
+      project.sessionSummary,
+      { workspaceDisplayName: project.name }
     )
     const merged = mergeSessionSummaryFromExtract(
       project.sessionSummary,
       extracted
     )
-    const summaryChanged = !sessionSummaryEqual(merged, project.sessionSummary)
-    const complete = isSessionSummaryComplete(merged)
+    const mergedStripped = stripSessionTitleIfWorkspaceMirror(project.name, merged)
+    const summaryChanged = !sessionSummaryEqual(mergedStripped, project.sessionSummary)
+    const complete = isSessionSummaryComplete(mergedStripped)
     const needPrompt =
       complete && !project.templateExportOfferShown && !alreadyHasPrompt
 
@@ -528,21 +548,21 @@ export function ChatScreen() {
         ],
       }
       updateProject(project.id, {
-        sessionSummary: merged,
+        sessionSummary: mergedStripped,
         messages: [...project.messages, promptMsg],
         templateExportOfferShown: true,
         lastUpdated: new Date(),
       })
-      queueSummarySave(merged)
+      queueSummarySave(mergedStripped)
       return
     }
 
     if (summaryChanged) {
       updateProject(project.id, {
-        sessionSummary: merged,
+        sessionSummary: mergedStripped,
         lastUpdated: new Date(),
       })
-      queueSummarySave(merged)
+      queueSummarySave(mergedStripped)
       return
     }
 
@@ -569,10 +589,43 @@ export function ChatScreen() {
     }
   }, [
     project?.id,
+    project?.name,
     project?.messages,
     project?.sessionSummary,
     project?.templateExportOfferShown,
     queueSummarySave,
+    updateProject,
+  ])
+
+  // 세션 제목이 채팅방(프로젝트) 표시명과 같으면 워크스페이스 이름이 주제로 잘못 들어간 것으로 보고 제거
+  useEffect(() => {
+    if (!project) return
+    const latest = useAppStore.getState().projects.find((p) => p.id === project.id)
+    if (!latest) return
+    const fixed = stripSessionTitleIfWorkspaceMirror(latest.name, latest.sessionSummary)
+    if (sessionSummaryEqual(fixed, latest.sessionSummary)) return
+
+    updateProject(project.id, { sessionSummary: fixed, lastUpdated: new Date() })
+
+    if (!project.backendProjectId) return
+    if (summarySaveTimerRef.current) {
+      clearTimeout(summarySaveTimerRef.current)
+      summarySaveTimerRef.current = null
+    }
+    void updateProjectSummary(project.backendProjectId, { title: "" })
+      .then(() => {
+        lastSyncedSummaryRef.current = fixed
+        setSummarySaveStatus("saved")
+      })
+      .catch((err) => {
+        console.warn("[요약] 워크스페이스명과 동일한 제목 제거 후 서버 동기화 실패:", err)
+        setSummarySaveStatus("error")
+      })
+  }, [
+    project?.id,
+    project?.name,
+    project?.sessionSummary?.title,
+    project?.backendProjectId,
     updateProject,
   ])
 
