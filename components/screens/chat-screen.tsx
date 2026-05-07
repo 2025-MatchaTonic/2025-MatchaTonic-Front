@@ -24,6 +24,7 @@ import {
   extractSessionSummaryFromMessages,
   SUMMARY_COMPLETE_PROMPT_MARKER,
 } from "@/lib/session-summary-from-chat"
+import { buildMatesNoTopicPrompt } from "@/lib/chat-topic-flow"
 import { isProjectLeaderRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -826,16 +827,45 @@ export function ChatScreen() {
       senderEmail: user?.email,
       senderName: user?.name,
     }
-    
+
+    const isNoTopicChoice = button.id === "no"
+    const sessionSummaryForNoTopic =
+      isNoTopicChoice
+        ? { ...project.sessionSummary, title: "" }
+        : undefined
+
     updateProject(project.id, {
       messages: [...updatedMessages, userMsg],
       lastUpdated: new Date(),
+      ...(sessionSummaryForNoTopic
+        ? { sessionSummary: sessionSummaryForNoTopic }
+        : {}),
     })
 
     // 예/아니오 버튼 → 답변을 백엔드 AI에 전송하여 본격 대화 시작
-    if (button.id === "yes" || button.id === "no") {
+    if (button.id === "yes" || isNoTopicChoice) {
       setIsAiTyping(true)
-      const messageToSend = `@mates ${button.value}`
+
+      if (isNoTopicChoice && project.backendProjectId) {
+        if (summarySaveTimerRef.current) {
+          clearTimeout(summarySaveTimerRef.current)
+          summarySaveTimerRef.current = null
+        }
+        try {
+          await updateProjectSummary(project.backendProjectId, { title: "" })
+          if (sessionSummaryForNoTopic) {
+            lastSyncedSummaryRef.current = sessionSummaryForNoTopic
+          }
+          setSummarySaveStatus("saved")
+        } catch (err) {
+          console.warn("[주제 없음] 요약 제목 초기화 실패:", err)
+          setSummarySaveStatus("error")
+        }
+      }
+
+      const messageToSend = isNoTopicChoice
+        ? buildMatesNoTopicPrompt()
+        : `@mates ${button.value}`
       if (project.backendProjectId) {
         if (stompConnected && stompSend) {
           stompSend(messageToSend)
