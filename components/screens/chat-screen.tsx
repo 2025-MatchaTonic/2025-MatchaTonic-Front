@@ -420,8 +420,13 @@ export function ChatScreen() {
       console.log("[요약 재조회] source=", source, "raw=", raw)
       if (!raw) return
 
+      const nested = extractSummaryFromAny(raw)
+      const pickSource: Record<string, unknown> = nested
+        ? { ...raw, ...nested }
+        : raw
+
       const pickStr = (k: string): string | undefined => {
-        const v = raw![k]
+        const v = pickSource[k]
         if (typeof v === "string") {
           const t = v.trim()
           return t.length > 0 ? t : undefined
@@ -430,8 +435,12 @@ export function ChatScreen() {
       }
 
       const extracted: Partial<SessionSummary> = {}
-      // collectedData.title 등은 채팅방 이름으로 쓰일 수 있어 서버 값으로 병합하지 않음
-      // (예: 과제/봇 설명 문장이 정상 프로젝트 제목과 구분 불가)
+
+      const titleCandidate = pickStr("title") ?? pickStr("subject")
+      if (titleCandidate && titleCandidate !== project.name) {
+        extracted.title = titleCandidate
+      }
+
       const g = pickStr("goal") ?? pickStr("objective")
       if (g) extracted.goal = g
       const ts =
@@ -483,7 +492,7 @@ export function ChatScreen() {
     } catch (err) {
       console.warn("[요약 재조회] 실패:", err)
     }
-  }, [project?.backendProjectId, project?.id, updateProject])
+  }, [project?.backendProjectId, project?.id, project?.name, updateProject])
 
   const ensureSummarySaved = useCallback(async () => {
     if (!project?.backendProjectId) return true

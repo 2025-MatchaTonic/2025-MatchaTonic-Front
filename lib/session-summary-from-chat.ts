@@ -42,7 +42,9 @@ function tryJsonBlock(text: string): Partial<SessionSummary> | null {
       return undefined
     }
     const out: Partial<SessionSummary> = {}
-    const t = pick(["title", "제목", "projectTitle"])
+    const t =
+      pick(["title", "제목", "projectTitle"]) ??
+      pick(["subject", "주제"])
     const g = pick(["goal", "목표", "objective"])
     const ts = pick(["teamSize", "팀인원", "team_size", "인원"])
     const r = pick(["roles", "역할", "role"])
@@ -141,7 +143,14 @@ export function extractSessionSummaryFromMessages(
         const obj = JSON.parse(trimmed) as Record<string, unknown>
         for (const k of SESSION_SUMMARY_KEYS) {
           if (current[k]?.trim() || out[k]?.trim()) continue
-          const v = obj[k]
+          let v = obj[k]
+          if (
+            k === "title" &&
+            (v == null || (typeof v === "string" && !v.trim()))
+          ) {
+            const sub = obj.subject ?? obj.주제
+            if (typeof sub === "string" && sub.trim()) v = sub
+          }
           if (typeof v === "string" && v.trim()) out[k] = v.trim().slice(0, 800)
         }
       }
