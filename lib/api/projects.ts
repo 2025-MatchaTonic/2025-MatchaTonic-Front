@@ -9,7 +9,6 @@
 
 import { apiRequest } from "./request"
 import { parseApiErrorResponse } from "./errors"
-import type { SummaryUpdateRequest } from "./summary"
 
 export interface MyProjectResponse {
   id: number
@@ -304,28 +303,82 @@ export async function deleteProject(projectId: number): Promise<void> {
   }
 }
 
-export interface ExportProjectRequest {
+export interface ProjectExportRequest {
   projectId: number
-  /** 백엔드 SummaryUpdateRequest와 동일한 필드 */
-  summary: SummaryUpdateRequest
+  templateType?: string
+  content?: string
+  selectedAnswers?: string[]
+  notionToken?: string
+  pageUrl?: string
 }
 
-export async function exportProjectToNotion(
-  data: ExportProjectRequest
-): Promise<string> {
-  const res = await apiRequest(`/api/projects/${data.projectId}/export`, {
+export function mapFrontendTemplateTypes(types: string[]): string {
+  if (types.includes("development") && !types.includes("planning")) return "dev"
+  return "plan"
+}
+
+function buildExportRequestBody(data: ProjectExportRequest) {
+  const body: Record<string, unknown> = {
+    projectId: data.projectId,
+    templateType: data.templateType ?? "plan",
+    content: data.content ?? "템플릿 생성 요청",
+    selectedAnswers: data.selectedAnswers ?? [],
+    pageUrl: data.pageUrl,
+  }
+  if (data.notionToken?.trim()) {
+    body.notionToken = data.notionToken.trim()
+  }
+  return body
+}
+
+export type ExportToNotionResult = {
+  status: "accepted" | "completed"
+  message: string
+}
+
+const DEFAULT_NOTION_PENDING_MESSAGE =
+  "노션 생성 중입니다. 잠시 후 노션을 확인해주세요."
+
+export async function analyzeProject(data: ProjectExportRequest): Promise<string> {
+  const res = await apiRequest(`/api/projects/${data.projectId}/analyze`, {
     method: "POST",
-    body: {
-      projectId: data.projectId,
-      summary: data.summary,
-    },
+    body: buildExportRequestBody(data),
   })
 
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`노션 내보내기 실패: ${res.status} ${text}`)
+    throw await parseApiErrorResponse(res, `AI 분석 실패: ${res.status}`)
   }
 
-  const text = await res.text()
-  return text
+  return res.text()
+}
+
+export interface ExportToNotionRequest extends ProjectExportRequest {
+  pageUrl: string
+}
+
+export async function exportProjectToNotion(
+  data: ExportToNotionRequest
+): Promise<ExportToNotionResult> {
+  const res = await apiRequest(`/api/projects/${data.projectId}/export-to-notion`, {
+    method: "POST",
+    body: buildExportRequestBody(data),
+  })
+
+  const text = (await res.text()).trim()
+
+  if (res.status === 202) {
+    return {
+      status: "accepted",
+      message: text || DEFAULT_NOTION_PENDING_MESSAGE,
+    }
+  }
+
+  if (!res.ok) {
+    throw await parseApiErrorResponse(res, `노션보내기 실패: ${res.status}`)
+  }
+
+  return {
+    status: "completed",
+    message: text || "노션보내기가 완료되었습니다.",
+  }
 }

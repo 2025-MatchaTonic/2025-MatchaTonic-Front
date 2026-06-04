@@ -1176,9 +1176,6 @@ export function ChatScreen() {
     const latestForTemplates = useAppStore
       .getState()
       .projects.find((p) => p.id === project.id)
-    const summaryPayload = latestForTemplates
-      ? summaryToNonEmptyUpdateRequest(latestForTemplates.sessionSummary)
-      : summaryToNonEmptyUpdateRequest(project.sessionSummary)
 
     const canCallTemplatesApi =
       !!latestForTemplates?.backendProjectId && !!getApiBaseUrl()
@@ -1187,7 +1184,7 @@ export function ChatScreen() {
       try {
         await generateProjectTemplates({
           projectId: latestForTemplates!.backendProjectId!,
-          summary: summaryPayload,
+          templateTypes: selectedTemplateTypes,
         })
         addCompleteMessage()
       } catch {

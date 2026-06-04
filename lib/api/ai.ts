@@ -1,34 +1,28 @@
 /**
- * AI 관련 API
- * - POST /ai/project/templates: AI 프로젝트 템플릿 생성
- * - 요약은 SummaryUpdateRequest(summary: { title, goal, ... }) 형태로 전송
+ * AI 템플릿 생성 — POST /api/projects/{projectId}/analyze
  */
 
-import { apiRequest } from "./request"
-import type { SummaryUpdateRequest } from "./summary"
+import {
+  analyzeProject,
+  mapFrontendTemplateTypes,
+  type ProjectExportRequest,
+} from "./projects"
 
 export interface GenerateTemplatesRequest {
   projectId: number
-  /** 백엔드 SummaryUpdateRequest와 동일한 필드 */
-  summary: SummaryUpdateRequest
+  templateTypes?: string[]
+  content?: string
+  selectedAnswers?: string[]
 }
 
 export async function generateProjectTemplates(
   data: GenerateTemplatesRequest
 ): Promise<string> {
-  const res = await apiRequest("/ai/project/templates", {
-    method: "POST",
-    body: {
-      projectId: data.projectId,
-      summary: data.summary,
-    },
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`템플릿 생성 실패: ${res.status} ${text}`)
+  const payload: ProjectExportRequest = {
+    projectId: data.projectId,
+    templateType: mapFrontendTemplateTypes(data.templateTypes ?? []),
+    content: data.content ?? "템플릿 생성 요청",
+    selectedAnswers: data.selectedAnswers,
   }
-
-  const text = await res.text()
-  return text
+  return analyzeProject(payload)
 }
