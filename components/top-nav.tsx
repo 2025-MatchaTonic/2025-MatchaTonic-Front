@@ -1,8 +1,7 @@
 "use client"
 
 import { useAppStore, type Screen } from "@/lib/store"
-import { clearAuthToken } from "@/lib/auth"
-import { getApiBaseUrl } from "@/lib/api/client"
+import { performLogout } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -77,16 +76,9 @@ export function TopNav() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => {
-                clearAuthToken()
-                setUser(null)
-                setScreen("login")
-                const base = getApiBaseUrl()
-                const useBackendLogout = process.env.NEXT_PUBLIC_USE_BACKEND_LOGOUT !== "false"
-                if (base && useBackendLogout && typeof window !== "undefined") {
-                  const redirectUri = encodeURIComponent(window.location.origin + "/")
-                  window.location.href = `${base.replace(/\/$/, "")}/logout?post_logout_redirect_uri=${redirectUri}`
-                }
+              onSelect={(e) => {
+                e.preventDefault()
+                performLogout()
               }}
               className="text-destructive focus:text-destructive"
             >

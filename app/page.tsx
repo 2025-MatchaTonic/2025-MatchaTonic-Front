@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useAppStore, type Screen } from "@/lib/store"
-import { getAuthToken } from "@/lib/auth"
+import { applyLoggedOutQueryParam, getAuthToken } from "@/lib/auth"
 import { TopNav } from "@/components/top-nav"
 import { LoginScreen } from "@/components/screens/login-screen"
 import { MainScreen } from "@/components/screens/main-screen"
@@ -25,6 +25,11 @@ export default function Page() {
 
   // 클라이언트 마운트 + 상태 복원
   useEffect(() => {
+    if (applyLoggedOutQueryParam()) {
+      setMounted(true)
+      return
+    }
+
     const fromHash = screenFromHash()
     let persistedScreen: Screen | null = null
     let persistedUser: typeof user = null

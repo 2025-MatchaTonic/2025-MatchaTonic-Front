@@ -11,7 +11,8 @@ import {
   parseProjectCreatedAtFromApi,
 } from "@/lib/api/projects"
 import { getApiBaseUrl } from "@/lib/api/client"
-import { clearAuthToken, getAuthToken } from "@/lib/auth"
+import { clearAppSession, getAuthToken } from "@/lib/auth"
+import { isAuthSessionError } from "@/lib/api/errors"
 import { isProjectLeaderRole, normalizeProjectRole } from "@/lib/project-role"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -132,9 +133,7 @@ function ProjectCard({ project }: { project: Project }) {
                   if (!ok) return
                   setShowTeam(false)
                   if (useApi && !hasToken) {
-                    clearAuthToken()
-                    setCurrentProjectId(null)
-                    setScreen("login")
+                    clearAppSession()
                     return
                   }
                   console.info("[프로젝트 삭제][요청 직전]", {
@@ -167,10 +166,8 @@ function ProjectCard({ project }: { project: Project }) {
                       userEmail: user?.email ?? null,
                       error: e instanceof Error ? e.message : e,
                     })
-                    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-                      clearAuthToken()
-                      setCurrentProjectId(null)
-                      setScreen("login")
+                    if (isAuthSessionError(e)) {
+                      clearAppSession()
                       return
                     }
                     const msg =

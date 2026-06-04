@@ -80,7 +80,7 @@ const allowedOrigins = [
 | Method | Path | 설명 |
 |--------|------|------|
 | GET | `/api/users/me` | 로그인 유저 정보 조회 |
-| GET | `/logout` | 로그아웃 (세션 정리 후 `post_logout_redirect_uri`로 리다이렉트 권장) |
+| GET | `/api/users/logout` | 로그아웃 (세션 정리 후 `post_logout_redirect_uri`로 리다이렉트) |
 
 ### OAuth2 로그인 후 리다이렉트 (필수)
 OAuth 인증 완료 후 반드시 아래 URL로 리다이렉트해 주세요.
